@@ -23,7 +23,11 @@ import {
   Edit3,
   Phone,
   Car,
-  MessageCircle
+  MessageCircle,
+  Menu,
+  X,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 
 export default function FinanceAndAccountsView({ 
@@ -42,8 +46,52 @@ export default function FinanceAndAccountsView({
   onOpenClientDetail
 }) {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'suppliers' | 'clients' | 'checks' | 'withdrawals'
+  const [isMenuDrawerOpen, setIsMenuDrawerOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [clientFilter, setClientFilter] = useState('all'); // 'all' | 'debt' | 'paid' | 'fleet' | 'particular'
+
+  const menuSections = [
+    {
+      id: 'overview',
+      title: 'Resumen General & Caja',
+      desc: 'Disponibilidad de fondos, efectivo y cuentas bancarias',
+      icon: <Wallet className="w-5 h-5 text-amber-500 shrink-0" />
+    },
+    {
+      id: 'suppliers',
+      title: `Proveedores & Cuentas (${suppliers.length})`,
+      desc: 'Deudas por repuestos, lubricantes y tornerías',
+      icon: <Building2 className="w-5 h-5 text-rose-500 shrink-0" />,
+      badge: suppliers.length > 0 ? `${suppliers.length}` : null
+    },
+    {
+      id: 'clients',
+      title: `Cuentas de Clientes / Cobranzas (${clientAccounts.length})`,
+      desc: 'Cuentas corrientes, facturación fiscal y plazos comerciales',
+      icon: <Users className="w-5 h-5 text-emerald-500 shrink-0" />,
+      badge: clientAccounts.filter(c => (c.balanceDue || 0) > 0).length > 0 
+        ? `${clientAccounts.filter(c => (c.balanceDue || 0) > 0).length} con deuda` 
+        : null
+    },
+    {
+      id: 'checks',
+      title: `Cartera de Cheques (${checks.length})`,
+      desc: 'Cheques recibidos de clientes, propios y endosados',
+      icon: <FileCheck className="w-5 h-5 text-blue-500 shrink-0" />,
+      badge: checks.filter(c => c.type === 'in_portfolio').length > 0 
+        ? `${checks.filter(c => c.type === 'in_portfolio').length} en cartera` 
+        : null
+    },
+    {
+      id: 'withdrawals',
+      title: `Retiros del Dueño (${withdrawals.length})`,
+      desc: 'Registro de extracciones y retiros personales del titular',
+      icon: <UserCheck className="w-5 h-5 text-amber-500 shrink-0" />,
+      badge: withdrawals.length > 0 ? `${withdrawals.length}` : null
+    }
+  ];
+
+  const currentSection = menuSections.find(s => s.id === activeTab) || menuSections[0];
 
   // Cálculos totales
   const totalClientDebt = clientAccounts.reduce((acc, c) => acc + (c.balanceDue || 0), 0);
@@ -120,68 +168,114 @@ export default function FinanceAndAccountsView({
 
       </div>
 
-      {/* Pestañas de Navegación Financiera */}
-      <div className="bg-white border-2 border-slate-200/90 p-2 rounded-2xl shadow-sm flex items-center gap-1.5 overflow-x-auto">
+      {/* Barra de Menú Hamburguesa & Selector de Sección */}
+      <div className="bg-white border-2 border-slate-300 rounded-2xl p-2.5 sm:p-3 shadow-md flex items-center justify-between gap-2.5">
         <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'overview'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
-          }`}
+          onClick={() => setIsMenuDrawerOpen(true)}
+          className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black shadow-md hover:shadow-lg transition active:scale-95 group shrink-0"
         >
-          <Wallet className="w-4 h-4 text-amber-400" />
-          <span>Resumen General & Caja</span>
+          <Menu className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+          <span>Menú de Cuentas</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('suppliers')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'suppliers'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
-          }`}
+        {/* Indicador de la sección activa actual con botón desplegable */}
+        <button 
+          onClick={() => setIsMenuDrawerOpen(true)}
+          className="flex-1 flex items-center justify-end gap-2 text-left group"
         >
-          <Building2 className="w-4 h-4 text-rose-400" />
-          <span>Proveedores & Cuentas ({suppliers.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('clients')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'clients'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
-          }`}
-        >
-          <Users className="w-4 h-4 text-emerald-400" />
-          <span>Cuentas de Clientes / Cobranzas</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('checks')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'checks'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
-          }`}
-        >
-          <FileCheck className="w-4 h-4 text-blue-400" />
-          <span>Cartera de Cheques ({checks.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('withdrawals')}
-          className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'withdrawals'
-              ? 'bg-slate-900 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
-          }`}
-        >
-          <UserCheck className="w-4 h-4 text-amber-400" />
-          <span>Retiros del Dueño</span>
+          <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">Sección activa:</span>
+          <div className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-black text-slate-900 flex items-center gap-2 transition shadow-2xs max-w-full">
+            {currentSection.icon}
+            <span className="truncate max-w-[170px] sm:max-w-none">{currentSection.title}</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0 group-hover:translate-y-0.5 transition-transform" />
+          </div>
         </button>
       </div>
+
+      {/* Menú Lateral Desplegable (Slide-over Drawer) */}
+      {isMenuDrawerOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex justify-end animate-in fade-in duration-150"
+          onClick={() => setIsMenuDrawerOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-sm h-full shadow-2xl p-5 flex flex-col justify-between border-l-2 border-slate-300 animate-in slide-in-from-right duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-4">
+              {/* Cabecera del Menú */}
+              <div className="flex items-center justify-between pb-3 border-b-2 border-slate-200">
+                <div className="flex items-center gap-2">
+                  <Menu className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-black text-slate-900 text-sm uppercase tracking-wide">
+                    Módulos de Cuentas
+                  </h3>
+                </div>
+                <button 
+                  onClick={() => setIsMenuDrawerOpen(false)}
+                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
+                  title="Cerrar menú"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 font-medium">
+                Selecciona la vista financiera que deseas consultar:
+              </p>
+
+              {/* Lista de Secciones */}
+              <div className="space-y-2.5">
+                {menuSections.map(sec => {
+                  const isActive = activeTab === sec.id;
+                  return (
+                    <button
+                      key={sec.id}
+                      onClick={() => {
+                        setActiveTab(sec.id);
+                        setIsMenuDrawerOpen(false);
+                      }}
+                      className={`w-full p-3.5 rounded-2xl text-left transition flex items-start gap-3 border-2 ${
+                        isActive
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg font-black'
+                          : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200 font-bold shadow-xs'
+                      }`}
+                    >
+                      <div className="p-2 rounded-xl bg-slate-100/10 shrink-0">
+                        {sec.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs">{sec.title}</span>
+                          {sec.badge && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                              isActive 
+                                ? 'bg-amber-400 text-slate-950 font-black' 
+                                : 'bg-slate-100 text-slate-700 border border-slate-300'
+                            }`}>
+                              {sec.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className={`text-[11px] mt-0.5 leading-tight ${isActive ? 'text-slate-300 font-normal' : 'text-slate-500 font-normal'}`}>
+                          {sec.desc}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Pie del Menú Lateral */}
+            <div className="pt-4 border-t border-slate-200 text-center">
+              <span className="text-[11px] font-bold text-slate-400">
+                Sistema Integral de Gestión de Taller
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================
           1. PESTAÑA: RESUMEN GENERAL & CAJA
