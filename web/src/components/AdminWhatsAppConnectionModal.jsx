@@ -34,10 +34,18 @@ export default function AdminWhatsAppConnectionModal({
   const [connectedUserPhone, setConnectedUserPhone] = useState(null);
   const [filterPrivacyActive, setFilterPrivacyActive] = useState(true);
 
-  // URL del backend (detecta si está en localhost o en la IP local)
-  const apiBase = window.location.hostname === 'localhost' 
-    ? 'http://localhost:3001' 
-    : `http://${window.location.hostname}:3001`;
+  // URL del backend (detecta si está en localhost, IP local o configuración guardada)
+  const isCloudHost = !['localhost', '127.0.0.1'].includes(window.location.hostname) && !window.location.hostname.startsWith('192.168.');
+  
+  const [customBackendUrl, setCustomBackendUrl] = useState(() => {
+    return localStorage.getItem('workshop_whatsapp_backend_url') || '';
+  });
+
+  const apiBase = customBackendUrl.trim() 
+    ? customBackendUrl.trim().replace(/\/$/, '')
+    : (window.location.hostname === 'localhost' 
+        ? 'http://localhost:3001' 
+        : `http://${window.location.hostname}:3001`);
 
   // Polling para consultar estado real de Baileys cuando el modal está abierto
   useEffect(() => {
@@ -269,6 +277,26 @@ export default function AdminWhatsAppConnectionModal({
                     <div className="p-8 text-center text-xs font-bold text-slate-500 space-y-2">
                       <RefreshCw className="w-6 h-6 mx-auto animate-spin text-emerald-600" />
                       <p>Generando código QR desde WhatsApp Web...</p>
+                    </div>
+                  )}
+
+                  {/* Alerta de conexión cuando el servidor Node no responde o se navega desde la nube */}
+                  {!serverOnline && (
+                    <div className="bg-amber-50 border-2 border-amber-300 p-4 rounded-xl text-left text-xs space-y-2">
+                      <div className="flex items-center gap-2 text-amber-900 font-bold">
+                        <AlertCircle className="w-4 h-4 text-amber-700" />
+                        <span>El conector Node.js de WhatsApp está en tu computadora local</span>
+                      </div>
+                      <p className="text-amber-800 text-[11px] leading-relaxed">
+                        Como estás navegando desde Vercel (<code className="font-mono bg-white px-1 py-0.5 rounded border border-amber-200">{window.location.hostname}</code>), el navegador no puede conectarse por seguridad directamente a tu <code className="font-mono">localhost:3001</code>.
+                      </p>
+                      <div className="bg-white p-3 rounded-lg border border-amber-200 text-[11px] space-y-2">
+                        <p className="font-bold text-slate-900">👉 Para ver el QR ahora mismo:</p>
+                        <p className="text-slate-700">
+                          Abrí la aplicación directamente desde tu computadora en: <br />
+                          <a href="http://localhost:5173" target="_blank" rel="noreferrer" className="text-blue-600 font-black underline">http://localhost:5173</a> o en tu red Wi-Fi: <a href="http://192.168.5.88:5173" target="_blank" rel="noreferrer" className="text-blue-600 font-black underline">http://192.168.5.88:5173</a>
+                        </p>
+                      </div>
                     </div>
                   )}
 
