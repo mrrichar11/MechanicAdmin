@@ -28,9 +28,9 @@ export default function BotDraftsView({ drafts, onOpenEditorWithDraft, onOpenWha
 
         <button
           onClick={onOpenWhatsAppSimulator}
-          className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium flex items-center gap-2 transition shadow-xs shrink-0"
+          className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 transition shadow-xs shrink-0"
         >
-          <Mic className="w-3.5 h-3.5" /> Probar Simulador
+          <Mic className="w-3.5 h-3.5" /> 🎙️ Dictar / Asistente
         </button>
       </div>
 

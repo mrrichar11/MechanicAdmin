@@ -24,3 +24,9 @@ yarn-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# WhatsApp Baileys session and caches
+auth_info_baileys/
+processed_messages.json
+drafts_cache.json
+

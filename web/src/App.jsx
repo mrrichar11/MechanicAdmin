@@ -34,7 +34,7 @@ import FinanceAndAccountsView from './components/FinanceAndAccountsView';
 import VehicleDetailModal from './components/VehicleDetailModal';
 import WorkOrderEditor from './components/WorkOrderEditor';
 import PrintModal from './components/PrintModal';
-import WhatsAppSimulator from './components/WhatsAppSimulator';
+import MechanicAssistantModal from './components/MechanicAssistantModal';
 import NewVehicleModal from './components/NewVehicleModal';
 import AdminWhatsAppConnectionModal from './components/AdminWhatsAppConnectionModal';
 import ExcelImportModal from './components/ExcelImportModal';
@@ -544,9 +544,10 @@ export default function App() {
             <button
               onClick={() => setIsWhatsAppSimOpen(true)}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5"
+              title="Dictar o cargar notas mecánicas con el micrófono o texto"
             >
-              <Mic className="w-4 h-4" />
-              <span>Simular Audio</span>
+              <Mic className="w-4 h-4 text-amber-300" />
+              <span>🎙️ Asistente de Carga</span>
             </button>
           </div>
 
@@ -638,11 +639,12 @@ export default function App() {
         workshopInfo={workshopInfo}
       />
 
-      <WhatsAppSimulator
+      <MechanicAssistantModal
         isOpen={isWhatsAppSimOpen}
         onClose={() => setIsWhatsAppSimOpen(false)}
         existingVehicles={vehicles}
         onNewDraftCreated={handleNewDraftCreated}
+        onOpenOrderDirectly={handleOpenEditorWithDraft}
       />
 
       <NewVehicleModal
