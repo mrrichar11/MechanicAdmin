@@ -15,7 +15,15 @@ import {
   UserCheck,
   Building,
   HelpCircle,
-  FileText
+  FileText,
+  Search,
+  ShieldCheck,
+  AlertTriangle,
+  Eye,
+  Edit3,
+  Phone,
+  Car,
+  MessageCircle
 } from 'lucide-react';
 
 export default function FinanceAndAccountsView({ 
@@ -28,9 +36,14 @@ export default function FinanceAndAccountsView({
   onOpenClientPayment,
   onOpenNewCheck,
   onOpenNewWithdrawal,
-  onOpenNewSupplier
+  onOpenNewSupplier,
+  onOpenNewClient,
+  onOpenEditClient,
+  onOpenClientDetail
 }) {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'suppliers' | 'clients' | 'checks' | 'withdrawals'
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientFilter, setClientFilter] = useState('all'); // 'all' | 'debt' | 'paid' | 'fleet' | 'particular'
 
   // Cálculos totales
   const totalClientDebt = clientAccounts.reduce((acc, c) => acc + (c.balanceDue || 0), 0);
@@ -338,79 +351,303 @@ export default function FinanceAndAccountsView({
       {/* ========================================================
           3. PESTAÑA: CUENTAS DE CLIENTES & COBRANZAS
       ======================================================== */}
-      {activeTab === 'clients' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                Cuentas Corrientes de Clientes (Flotas y Particulares)
-              </h3>
-              <p className="text-xs text-slate-500">
-                Control de saldos facturados, pagos parciales con cheque o transferencia, y deuda restante.
-              </p>
-            </div>
-            <button
-              onClick={onOpenClientPayment}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
-            >
-              + Registrar Cobranza / Pago Parcial
-            </button>
-          </div>
+      {/* ========================================================
+          3. PESTAÑA: CRM, CUENTAS CORRIENTES Y COBRANZAS DE CLIENTES
+      ======================================================== */}
+      {activeTab === 'clients' && (() => {
+        const totalBilledClients = clientAccounts.reduce((acc, c) => acc + (c.totalBilled || 0), 0);
+        const totalPaidClients = clientAccounts.reduce((acc, c) => acc + (c.totalPaid || 0), 0);
+        const overdueClientsCount = clientAccounts.filter(c => c.isOverdue).length;
 
-          <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-md">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                <tr>
-                  <th className="py-3 px-4">Cliente / Razón Social</th>
-                  <th className="py-3 px-4">Tipo</th>
-                  <th className="py-3 px-4">Autos Asociados</th>
-                  <th className="py-3 px-4 text-right">Total Facturado</th>
-                  <th className="py-3 px-4 text-right">Total Cobrado</th>
-                  <th className="py-3 px-4 text-right">Saldo Deudor</th>
-                  <th className="py-3 px-4 text-center">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {clientAccounts.map(cli => (
-                  <tr key={cli.id} className="hover:bg-slate-50">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {cli.clientName}
-                      <span className="block text-[11px] text-slate-400 font-normal">CUIT: {cli.cuitDni} • Tel: {cli.phone}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {cli.clientType === 'fleet' ? (
-                        <span className="bg-blue-100 text-blue-900 text-[10px] font-bold px-2 py-0.5 rounded-full">Flota Empresa</span>
-                      ) : (
-                        <span className="bg-purple-100 text-purple-900 text-[10px] font-bold px-2 py-0.5 rounded-full">Particular</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
-                      {cli.vehicles?.join(', ')}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-slate-700">
-                      $ {cli.totalBilled?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-emerald-700 font-bold">
-                      $ {cli.totalPaid?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-black text-rose-700 text-sm">
-                      $ {cli.balanceDue?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={onOpenClientPayment}
-                        className="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition shadow-2xs"
-                      >
-                        Cobrar
-                      </button>
-                    </td>
-                  </tr>
+        const filteredClients = clientAccounts.filter(cli => {
+          const term = clientSearch.toLowerCase().trim();
+          const matchesSearch = !term || 
+            (cli.name || cli.clientName || '').toLowerCase().includes(term) ||
+            (cli.contactPerson || '').toLowerCase().includes(term) ||
+            (cli.taxId || cli.cuitDni || '').toLowerCase().includes(term) ||
+            (cli.phone || '').includes(term) ||
+            (cli.vehicles || []).some(v => (v.plate || (typeof v === 'string' ? v : '')).toLowerCase().includes(term));
+
+          if (!matchesSearch) return false;
+          if (clientFilter === 'debt') return (cli.balanceDue || 0) > 0;
+          if (clientFilter === 'paid') return (cli.balanceDue || 0) === 0;
+          if (clientFilter === 'fleet') return cli.clientType === 'fleet';
+          if (clientFilter === 'particular') return cli.clientType !== 'fleet';
+          return true;
+        });
+
+        return (
+          <div className="space-y-5">
+            {/* Encabezado y Botones de Acción */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                  <Users className="w-5 h-5 text-emerald-600" />
+                  CRM & Cuentas Corrientes de Clientes
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Control estricto de saldos, facturación fiscal, plazos de pago (15/30/60 días), cheques y cobranzas.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                {onOpenNewClient && (
+                  <button
+                    onClick={onOpenNewClient}
+                    className="flex-1 sm:flex-initial px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-300 rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-600" />
+                    <span>Nuevo Cliente</span>
+                  </button>
+                )}
+                <button
+                  onClick={onOpenClientPayment}
+                  className="flex-1 sm:flex-initial px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center gap-1.5"
+                >
+                  <DollarSign className="w-4 h-4 text-emerald-200" />
+                  <span>Registrar Cobro</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Tarjetas Métricas Rápidas de Clientes */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Facturado</span>
+                <span className="text-base sm:text-lg font-mono font-black text-slate-900">
+                  $ {totalBilledClients.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="bg-emerald-50/60 border border-emerald-200 p-3.5 rounded-xl">
+                <span className="text-[10px] uppercase font-bold text-emerald-800 block">Total Cobrado</span>
+                <span className="text-base sm:text-lg font-mono font-black text-emerald-950">
+                  $ {totalPaidClients.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-xl">
+                <span className="text-[10px] uppercase font-bold text-rose-800 block">Saldo Total a Cobrar</span>
+                <span className="text-base sm:text-lg font-mono font-black text-rose-950">
+                  $ {totalClientDebt.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className={`p-3.5 rounded-xl border ${overdueClientsCount > 0 ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200'}`}>
+                <span className="text-[10px] uppercase font-bold text-slate-600 block">En Mora / Vencidos</span>
+                <span className={`text-base sm:text-lg font-mono font-black ${overdueClientsCount > 0 ? 'text-amber-900' : 'text-slate-700'}`}>
+                  {overdueClientsCount} cliente{overdueClientsCount === 1 ? '' : 's'}
+                </span>
+              </div>
+            </div>
+
+            {/* Barra de Búsqueda y Filtros */}
+            <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente, contacto, CUIT, teléfono o patente..."
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-500"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                {[
+                  { id: 'all', label: `Todos (${clientAccounts.length})` },
+                  { id: 'debt', label: 'Con Saldo Pendiente' },
+                  { id: 'paid', label: 'Al Día' },
+                  { id: 'fleet', label: 'Flotas' },
+                  { id: 'particular', label: 'Particulares' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setClientFilter(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition ${
+                      clientFilter === tab.id
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
+
+            {/* Listado / Tabla de Cuentas de Clientes */}
+            <div className="bg-white border-2 border-slate-200 rounded-2xl overflow-hidden shadow-md">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[750px]">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Cliente / Razón Social</th>
+                      <th className="py-3 px-3">Datos Fiscales</th>
+                      <th className="py-3 px-3">Vehículos / Flota</th>
+                      <th className="py-3 px-3 text-center">Condición de Pago</th>
+                      <th className="py-3 px-3 text-right">Facturado</th>
+                      <th className="py-3 px-3 text-right">Cobrado</th>
+                      <th className="py-3 px-3 text-right">Saldo Deudor</th>
+                      <th className="py-3 px-3 text-center">Estado</th>
+                      <th className="py-3 px-4 text-center">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {filteredClients.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
+                          No se encontraron clientes con los filtros seleccionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredClients.map(cli => {
+                        const hasDebt = (cli.balanceDue || 0) > 0;
+                        const clientName = cli.name || cli.clientName;
+                        const vehiclesList = (cli.vehicles || []).map(v => typeof v === 'string' ? v : v.plate);
+
+                        return (
+                          <tr key={cli.id} className="hover:bg-slate-50 transition-colors">
+                            {/* Cliente & Contacto */}
+                            <td className="py-3 px-4">
+                              <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                                {cli.clientType === 'fleet' ? (
+                                  <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                ) : (
+                                  <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                )}
+                                <span>{clientName}</span>
+                              </div>
+                              {cli.contactPerson && (
+                                <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
+                                  Resp: {cli.contactPerson}
+                                </span>
+                              )}
+                              {cli.phone && (
+                                <a
+                                  href={`https://wa.me/${cli.phone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 font-bold mt-0.5"
+                                >
+                                  <MessageCircle className="w-3 h-3 text-emerald-600" />
+                                  <span>{cli.phone}</span>
+                                </a>
+                              )}
+                            </td>
+
+                            {/* Datos Fiscales */}
+                            <td className="py-3 px-3 text-slate-700">
+                              <span className="font-mono text-[11px] block text-slate-900 font-bold">
+                                {cli.taxId || cli.cuitDni || 'Sin CUIT/DNI'}
+                              </span>
+                              <span className="inline-block bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-bold px-1.5 py-0.2 rounded mt-0.5">
+                                {cli.taxCategory || 'Consumidor Final'}
+                              </span>
+                            </td>
+
+                            {/* Flota / Vehículos */}
+                            <td className="py-3 px-3">
+                              <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                {vehiclesList.length > 0 ? (
+                                  vehiclesList.slice(0, 3).map((plate, idx) => (
+                                    <span key={idx} className="bg-slate-100 border border-slate-300 px-1.5 py-0.5 rounded font-mono font-bold text-[10px] text-slate-800">
+                                      {plate}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-[11px] text-slate-400">Sin autos</span>
+                                )}
+                                {vehiclesList.length > 3 && (
+                                  <span className="text-[10px] text-slate-500 font-bold self-center">
+                                    +{vehiclesList.length - 3} más
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Condición de Pago */}
+                            <td className="py-3 px-3 text-center">
+                              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold text-[10px] border border-slate-200">
+                                <Clock className="w-3 h-3 text-slate-500" />
+                                {cli.paymentTermDays > 0 ? `${cli.paymentTermDays} días` : 'Contado'}
+                              </span>
+                            </td>
+
+                            {/* Total Facturado */}
+                            <td className="py-3 px-3 text-right font-mono text-slate-700">
+                              $ {cli.totalBilled?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Total Cobrado */}
+                            <td className="py-3 px-3 text-right font-mono text-emerald-700 font-bold">
+                              $ {cli.totalPaid?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Saldo Deudor */}
+                            <td className="py-3 px-3 text-right font-mono font-black text-sm">
+                              <span className={hasDebt ? 'text-rose-700' : 'text-slate-400'}>
+                                $ {cli.balanceDue?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+
+                            {/* Estado / Badge de Mora */}
+                            <td className="py-3 px-3 text-center">
+                              {!hasDebt ? (
+                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  Al Día
+                                </span>
+                              ) : cli.isOverdue ? (
+                                <span className="bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-1">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  Vencido ({cli.overdueDays}d)
+                                </span>
+                              ) : (
+                                <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  En Plazo
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Botones de Acción */}
+                            <td className="py-3 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {onOpenClientDetail && (
+                                  <button
+                                    onClick={() => onOpenClientDetail(cli)}
+                                    title="Ver Ficha y Cuenta Corriente"
+                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span className="hidden xl:inline text-[11px]">Ficha</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => onOpenClientPayment(cli)}
+                                  title="Registrar Cobro"
+                                  className="p-1.5 sm:px-2.5 sm:py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                                >
+                                  <DollarSign className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline text-[11px]">Cobrar</span>
+                                </button>
+                                {onOpenEditClient && (
+                                  <button
+                                    onClick={() => onOpenEditClient(cli)}
+                                    title="Editar Datos Fiscales"
+                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ========================================================
           4. PESTAÑA: CARTERA DE CHEQUES (Recibidos, Emitidos y Endosados)

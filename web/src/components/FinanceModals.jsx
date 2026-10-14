@@ -2,16 +2,23 @@ import React, { useState } from 'react';
 import { X, Save, DollarSign, Building2, Users, FileCheck, UserCheck } from 'lucide-react';
 
 // Modal para Cobro a Cliente o Pago a Proveedor
-export function RegisterPaymentModal({ isOpen, onClose, type = 'client', suppliers, clientAccounts, checks, onSavePayment }) {
+export function RegisterPaymentModal({ isOpen, onClose, type = 'client', initialEntityId = null, suppliers, clientAccounts, checks, onSavePayment }) {
   if (!isOpen) return null;
 
   const isClient = type === 'client';
   const [selectedEntityId, setSelectedEntityId] = useState(
-    isClient ? (clientAccounts[0]?.id || '') : (suppliers[0]?.id || '')
+    initialEntityId || (isClient ? (clientAccounts[0]?.id || '') : (suppliers[0]?.id || ''))
   );
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Efectivo');
   const [selectedEndorsedCheckId, setSelectedEndorsedCheckId] = useState('');
+  const [receiptNumber, setReceiptNumber] = useState('');
+  const [transferRef, setTransferRef] = useState('');
+  const [checkBank, setCheckBank] = useState('Banco Galicia');
+  const [checkNumber, setCheckNumber] = useState('');
+  const [checkDueDate, setCheckDueDate] = useState(
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  );
   const [notes, setNotes] = useState('');
 
   const checksInPortfolio = checks.filter(c => c.type === 'in_portfolio');
@@ -27,6 +34,13 @@ export function RegisterPaymentModal({ isOpen, onClose, type = 'client', supplie
       amount: parsedAmount,
       method: paymentMethod,
       endorsedCheckId: paymentMethod === 'Endoso de Cheque de Tercero' ? selectedEndorsedCheckId : null,
+      receiptNumber: receiptNumber.trim(),
+      transferRef: transferRef.trim(),
+      checkDetails: paymentMethod === 'Cheque Recibido (Cliente)' ? {
+        bank: checkBank,
+        checkNumber: checkNumber || Math.floor(10000000 + Math.random() * 90000000).toString(),
+        dueDate: checkDueDate
+      } : null,
       notes: notes.trim() || 'Sin observaciones'
     });
 
@@ -127,15 +141,82 @@ export function RegisterPaymentModal({ isOpen, onClose, type = 'client', supplie
             </div>
           )}
 
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Detalle / Notas / Factura</label>
-            <input
-              type="text"
-              placeholder="Ej. Pago parcial factura poleas / Pago arreglo Mercedes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none"
-            />
+          {paymentMethod === 'Cheque Recibido (Cliente)' && (
+            <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-300 space-y-2">
+              <span className="text-[11px] font-black text-emerald-900 uppercase tracking-wide">
+                Datos del Cheque Recibido (Ingresa a Cartera)
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-emerald-800 font-bold mb-1">Banco Emisor</label>
+                  <input
+                    type="text"
+                    required
+                    value={checkBank}
+                    onChange={(e) => setCheckBank(e.target.value)}
+                    placeholder="Ej. Galicia / Nación"
+                    className="w-full bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-bold text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-emerald-800 font-bold mb-1">Número de Cheque</label>
+                  <input
+                    type="text"
+                    required
+                    value={checkNumber}
+                    onChange={(e) => setCheckNumber(e.target.value)}
+                    placeholder="Ej. 84920192"
+                    className="w-full bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-mono font-bold text-xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-emerald-800 font-bold mb-1">Fecha de Vencimiento / Cobro</label>
+                <input
+                  type="date"
+                  required
+                  value={checkDueDate}
+                  onChange={(e) => setCheckDueDate(e.target.value)}
+                  className="w-full bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 text-slate-900 font-bold text-xs"
+                />
+              </div>
+            </div>
+          )}
+
+          {paymentMethod === 'Transferencia Bancaria' && (
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Nº Comprobante / Referencia Transferencia</label>
+              <input
+                type="text"
+                placeholder="Ej. TRANSF-849204 o Código COELSA"
+                value={transferRef}
+                onChange={(e) => setTransferRef(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-xs font-mono"
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Nº Recibo / Comprobante Interno</label>
+              <input
+                type="text"
+                placeholder="Ej. REC-0001-00049"
+                value={receiptNumber}
+                onChange={(e) => setReceiptNumber(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">Detalle / Notas / Imputación</label>
+              <input
+                type="text"
+                placeholder="Ej. Pago a cuenta / Saldo OT"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 text-xs"
+              />
+            </div>
           </div>
 
           <div className="pt-3 border-t border-slate-300 flex justify-end gap-2">

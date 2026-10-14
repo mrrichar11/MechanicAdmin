@@ -97,6 +97,42 @@ CREATE TABLE IF NOT EXISTS owner_withdrawals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 7. Tabla de Clientes (CRM, Facturación Fiscal & Condiciones Comerciales)
+CREATE TABLE IF NOT EXISTS clients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workshop_id UUID REFERENCES workshops(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,                             -- Razón Social / Nombre y Apellido
+  contact_person TEXT DEFAULT '',                 -- Encargado / Chofer / Responsable
+  client_type TEXT DEFAULT 'particular',          -- 'particular' o 'fleet' (flota)
+  tax_id TEXT DEFAULT '',                         -- CUIT / CUIL / DNI
+  tax_category TEXT DEFAULT 'Consumidor Final',   -- 'Responsable Inscripto', 'Monotributo', 'Exento', 'Consumidor Final'
+  email TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  address TEXT DEFAULT '',
+  city TEXT DEFAULT '',
+  province TEXT DEFAULT '',
+  postal_code TEXT DEFAULT '',
+  payment_term_days INT DEFAULT 0,                -- Días de plazo de pago (0=Contado, 15, 30, 60)
+  credit_limit NUMERIC DEFAULT 0,
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. Tabla de Cobranzas / Pagos Recibidos de Clientes
+CREATE TABLE IF NOT EXISTS client_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workshop_id UUID REFERENCES workshops(id) ON DELETE CASCADE,
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  amount NUMERIC NOT NULL DEFAULT 0,
+  payment_method TEXT NOT NULL DEFAULT 'Efectivo', -- 'Efectivo', 'Transferencia', 'Cheque'
+  check_id UUID REFERENCES checks(id) ON DELETE SET NULL,
+  receipt_number TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ================================================================
 -- POLÍTICAS DE SEGURIDAD ROW LEVEL SECURITY (RLS)
 -- Cada taller solo puede ver y editar sus propios datos
@@ -108,6 +144,8 @@ ALTER TABLE work_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE owner_withdrawals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_payments ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Workshops access own data" ON workshops
   FOR ALL USING (auth.uid() = user_id);
@@ -125,4 +163,10 @@ CREATE POLICY "Checks access own workshop" ON checks
   FOR ALL USING (workshop_id IN (SELECT id FROM workshops WHERE user_id = auth.uid()));
 
 CREATE POLICY "Withdrawals access own workshop" ON owner_withdrawals
+  FOR ALL USING (workshop_id IN (SELECT id FROM workshops WHERE user_id = auth.uid()));
+
+CREATE POLICY "Clients access own workshop" ON clients
+  FOR ALL USING (workshop_id IN (SELECT id FROM workshops WHERE user_id = auth.uid()));
+
+CREATE POLICY "Client payments access own workshop" ON client_payments
   FOR ALL USING (workshop_id IN (SELECT id FROM workshops WHERE user_id = auth.uid()));

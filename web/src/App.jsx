@@ -43,6 +43,8 @@ import AdminWhatsAppConnectionModal from './components/AdminWhatsAppConnectionMo
 import ExcelImportModal from './components/ExcelImportModal';
 import AuthScreen from './components/AuthScreen';
 import SettingsView from './components/SettingsView';
+import ClientDetailModal from './components/ClientDetailModal';
+import ClientEditorModal from './components/ClientEditorModal';
 import { 
   RegisterPaymentModal, 
   RegisterWithdrawalModal, 
@@ -58,7 +60,10 @@ import {
   saveVehicleToDb, 
   saveWorkOrderToDb, 
   bulkImportToSupabase,
-  syncLocalDataIfDbEmpty
+  syncLocalDataIfDbEmpty,
+  saveClientToDb,
+  saveClientPaymentToDb,
+  buildClientAccounts
 } from './services/databaseService';
 
 export default function App() {
@@ -189,6 +194,15 @@ export default function App() {
             if (cloudData.vehicles && cloudData.vehicles.length > 0) {
               setVehicles(cloudData.vehicles);
             }
+            if (cloudData.clients && cloudData.clients.length > 0) {
+              setDbClientsList(cloudData.clients);
+            }
+            if (cloudData.clientPayments && cloudData.clientPayments.length > 0) {
+              setDbPaymentsList(cloudData.clientPayments);
+            }
+            if (cloudData.clientAccounts && cloudData.clientAccounts.length > 0) {
+              setClientAccounts(cloudData.clientAccounts);
+            }
             if (cloudData.suppliers && cloudData.suppliers.length > 0) {
               setSuppliers(cloudData.suppliers);
             }
@@ -211,6 +225,24 @@ export default function App() {
 
     return () => { isMounted = false; };
   }, [userSession]);
+
+  // Estado de Clientes y Cobranzas persistidos en DB
+  const [dbClientsList, setDbClientsList] = useState([]);
+  const [dbPaymentsList, setDbPaymentsList] = useState([]);
+
+  // Modales CRM & Clientes
+  const [selectedClientDetail, setSelectedClientDetail] = useState(null);
+  const [selectedClientToEdit, setSelectedClientToEdit] = useState(null);
+  const [isClientEditorOpen, setIsClientEditorOpen] = useState(false);
+  const [preselectedClientId, setPreselectedClientId] = useState(null);
+
+  // Recalcular Cuentas Corrientes y CRM reactivamente cuando cambian vehículos, pagos o clientes
+  useEffect(() => {
+    if (vehicles && vehicles.length > 0) {
+      const computedAccounts = buildClientAccounts(vehicles, dbClientsList, dbPaymentsList, checks);
+      setClientAccounts(computedAccounts);
+    }
+  }, [vehicles, dbClientsList, dbPaymentsList, checks]);
 
   // Navegación de Vistas: 'vehicles' | 'drafts' | 'finances' | 'settings'
   const [currentView, setCurrentView] = useState('vehicles');
@@ -434,44 +466,79 @@ export default function App() {
     alert('¡Copia de seguridad restaurada correctamente en este taller!');
   };
 
-  // Procesar Pago / Cobranza Financiera
-  const handleSavePayment = ({ type, entityId, amount, method, endorsedCheckId, notes }) => {
-    if (type === 'client') {
-      setClientAccounts(prev => prev.map(c => {
-        if (c.id === entityId) {
-          const newPaid = (c.totalPaid || 0) + amount;
-          const newDue = Math.max(0, (c.balanceDue || 0) - amount);
-          return {
-            ...c,
-            totalPaid: newPaid,
-            balanceDue: newDue,
-            payments: [{ id: `cp-${Date.now()}`, date: new Date().toISOString().split('T')[0], method, amount, note: notes }, ...(c.payments || [])]
-          };
-        }
-        return c;
-      }));
+  // Guardar o actualizar datos de un Cliente (CRM / Fiscal / Comercial)
+  const handleSaveClient = async (clientData) => {
+    setDbClientsList(prev => {
+      const idx = prev.findIndex(c => c.id === clientData.id || (c.name && c.name.toLowerCase() === (clientData.name || '').toLowerCase()));
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], ...clientData };
+        return copy;
+      }
+      return [clientData, ...prev];
+    });
 
-      if (method.includes('Cheque')) {
+    if (currentWorkshop?.id) {
+      await saveClientToDb(currentWorkshop.id, clientData);
+    }
+  };
+
+  const handleOpenClientPayment = (client = null) => {
+    if (client) {
+      setPreselectedClientId(client.id);
+    } else {
+      setPreselectedClientId(null);
+    }
+    setPaymentModalConfig({ isOpen: true, type: 'client' });
+  };
+
+  // Procesar Pago / Cobranza Financiera
+  const handleSavePayment = async ({ type, entityId, amount, method, endorsedCheckId, receiptNumber, transferRef, checkDetails, notes }) => {
+    if (type === 'client') {
+      const paymentDate = new Date().toISOString().split('T')[0];
+      const newPayment = {
+        id: `cp-${Date.now()}`,
+        client_id: entityId,
+        date: paymentDate,
+        amount,
+        payment_method: method,
+        receipt_number: receiptNumber || '',
+        notes: notes || ''
+      };
+
+      setDbPaymentsList(prev => [newPayment, ...prev]);
+
+      if (method === 'Cheque Recibido (Cliente)' || method.includes('Cheque')) {
         const clientObj = clientAccounts.find(c => c.id === entityId);
-        setChecks(prev => [
-          {
-            id: `chk-${Date.now()}`,
-            type: 'in_portfolio',
-            bank: 'Banco del Cliente',
-            checkNumber: `${Math.floor(10000000 + Math.random() * 90000000)}`,
-            issuer: clientObj?.clientName || 'Cliente',
-            recipient: `${workshopInfo.name || 'El Taller'} / ${workshopInfo.owner || 'Titular'}`,
-            dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
-            amount: amount,
-            status: 'A cobrar en cartera',
-            originOrderOrNote: `Pago de ${clientObj?.clientName}`
-          },
-          ...prev
-        ]);
+        const newCheck = {
+          id: `chk-${Date.now()}`,
+          type: 'in_portfolio',
+          bank: checkDetails?.bank || 'Banco Galicia',
+          checkNumber: checkDetails?.checkNumber || `${Math.floor(10000000 + Math.random() * 90000000)}`,
+          issuer: clientObj?.name || clientObj?.clientName || 'Cliente',
+          recipient: `${workshopInfo.name || 'El Taller'} / ${workshopInfo.owner || 'Titular'}`,
+          dueDate: checkDetails?.dueDate || new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+          amount: amount,
+          status: 'A cobrar en cartera',
+          originOrderOrNote: `Pago de ${clientObj?.name || clientObj?.clientName} (Recibo: ${receiptNumber || 'S/N'})`
+        };
+        setChecks(prev => [newCheck, ...prev]);
       } else if (method === 'Efectivo') {
         setCashBalance(prev => ({ ...prev, cashOnHand: prev.cashOnHand + amount }));
       } else {
         setCashBalance(prev => ({ ...prev, bankBalance: prev.bankBalance + amount }));
+      }
+
+      // Persistir cobro en Supabase
+      if (currentWorkshop?.id) {
+        await saveClientPaymentToDb(currentWorkshop.id, {
+          entityId,
+          date: paymentDate,
+          amount,
+          method,
+          receiptNumber,
+          notes
+        });
       }
     } else {
       setSuppliers(prev => prev.map(s => {
@@ -706,10 +773,21 @@ export default function App() {
             withdrawals={withdrawals}
             cashBalance={cashBalance}
             onOpenSupplierPayment={() => setPaymentModalConfig({ isOpen: true, type: 'supplier' })}
-            onOpenClientPayment={() => setPaymentModalConfig({ isOpen: true, type: 'client' })}
+            onOpenClientPayment={handleOpenClientPayment}
             onOpenNewCheck={() => setIsCheckModalOpen(true)}
             onOpenNewWithdrawal={() => setIsWithdrawalModalOpen(true)}
             onOpenNewSupplier={() => setIsSupplierModalOpen(true)}
+            onOpenNewClient={() => {
+              setSelectedClientToEdit(null);
+              setIsClientEditorOpen(true);
+            }}
+            onOpenEditClient={(cli) => {
+              setSelectedClientToEdit(cli);
+              setIsClientEditorOpen(true);
+            }}
+            onOpenClientDetail={(cli) => {
+              setSelectedClientDetail(cli);
+            }}
           />
         )}
 
@@ -839,11 +917,46 @@ export default function App() {
       <RegisterPaymentModal
         isOpen={paymentModalConfig.isOpen}
         type={paymentModalConfig.type}
-        onClose={() => setPaymentModalConfig({ isOpen: false, type: 'client' })}
+        initialEntityId={preselectedClientId}
+        onClose={() => {
+          setPaymentModalConfig({ isOpen: false, type: 'client' });
+          setPreselectedClientId(null);
+        }}
         suppliers={suppliers}
         clientAccounts={clientAccounts}
         checks={checks}
         onSavePayment={handleSavePayment}
+      />
+
+      {/* Modales de CRM, Cuentas Corrientes y Clientes */}
+      <ClientDetailModal
+        isOpen={Boolean(selectedClientDetail)}
+        onClose={() => setSelectedClientDetail(null)}
+        client={selectedClientDetail}
+        onOpenPayment={(cli) => {
+          setSelectedClientDetail(null);
+          handleOpenClientPayment(cli);
+        }}
+        onEditClient={(cli) => {
+          setSelectedClientDetail(null);
+          setSelectedClientToEdit(cli);
+          setIsClientEditorOpen(true);
+        }}
+        onSelectVehicle={(veh) => {
+          setSelectedClientDetail(null);
+          handleSelectVehicle(veh);
+        }}
+        workshopInfo={workshopInfo}
+      />
+
+      <ClientEditorModal
+        isOpen={isClientEditorOpen}
+        onClose={() => {
+          setIsClientEditorOpen(false);
+          setSelectedClientToEdit(null);
+        }}
+        client={selectedClientToEdit}
+        onSaveClient={handleSaveClient}
       />
 
       <RegisterWithdrawalModal

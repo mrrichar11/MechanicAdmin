@@ -145,9 +145,53 @@ export async function loadWorkshopData(workshopId) {
       .select('*')
       .eq('workshop_id', workshopId);
 
+    // Cargar Clientes (CRM & Facturación Fiscal)
+    let dbClients = [];
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('workshop_id', workshopId)
+        .order('name');
+      if (!error && data) dbClients = data;
+    } catch (e) {
+      console.warn('Tabla clients no disponible aún en Supabase:', e);
+    }
+
+    // Cargar Pagos / Cobranzas de Clientes
+    let dbPayments = [];
+    try {
+      const { data, error } = await supabase
+        .from('client_payments')
+        .select('*')
+        .eq('workshop_id', workshopId)
+        .order('date', { ascending: false });
+      if (!error && data) dbPayments = data;
+    } catch (e) {
+      console.warn('Tabla client_payments no disponible aún en Supabase:', e);
+    }
+
+    const checksFormatted = (dbChecks || []).map(c => ({
+      id: c.id,
+      type: c.check_type,
+      bank: c.bank,
+      number: c.check_number,
+      issuer: c.issuer,
+      recipient: c.recipient,
+      dueDate: c.due_date,
+      amount: Number(c.amount) || 0,
+      status: c.status,
+      notes: c.notes
+    }));
+
+    const clientAccounts = buildClientAccounts(vehiclesWithHistory, dbClients, dbPayments, checksFormatted);
+
     return {
       workshop,
       vehicles: vehiclesWithHistory,
+      clients: dbClients,
+      clientAccounts,
+      clientPayments: dbPayments,
       suppliers: (dbSuppliers || []).map(s => ({
         id: s.id,
         name: s.name,
@@ -158,18 +202,7 @@ export async function loadWorkshopData(workshopId) {
         balanceDue: Number(s.balance_due) || 0,
         invoices: []
       })),
-      checks: (dbChecks || []).map(c => ({
-        id: c.id,
-        type: c.check_type,
-        bank: c.bank,
-        number: c.check_number,
-        issuer: c.issuer,
-        recipient: c.recipient,
-        dueDate: c.due_date,
-        amount: Number(c.amount) || 0,
-        status: c.status,
-        notes: c.notes
-      })),
+      checks: checksFormatted,
       withdrawals: (dbWithdrawals || []).map(w => ({
         id: w.id,
         date: w.date,
@@ -392,3 +425,285 @@ export async function syncLocalDataIfDbEmpty(workshopId, localVehicles, localSet
     return false;
   }
 }
+
+// 8. Construcción Inteligente del Libro Mayor y Cuentas de Clientes (CRM + Cuenta Corriente)
+export function buildClientAccounts(vehicles = [], dbClients = [], dbPayments = [], checks = []) {
+  const clientsMap = new Map();
+
+  // A. Registrar clientes dados de alta en Supabase
+  (dbClients || []).forEach(dc => {
+    const key = (dc.name || '').trim().toLowerCase();
+    clientsMap.set(key || dc.id, {
+      id: dc.id,
+      name: dc.name,
+      clientName: dc.name,
+      contactPerson: dc.contact_person || '',
+      clientType: dc.client_type || 'particular',
+      taxId: dc.tax_id || '',
+      cuitDni: dc.tax_id || '',
+      taxCategory: dc.tax_category || 'Consumidor Final',
+      email: dc.email || '',
+      phone: dc.phone || '',
+      address: dc.address || '',
+      city: dc.city || '',
+      province: dc.province || '',
+      postalCode: dc.postal_code || '',
+      paymentTermDays: parseInt(dc.payment_term_days, 10) || 0,
+      creditLimit: parseFloat(dc.credit_limit) || 0,
+      notes: dc.notes || '',
+      vehicles: [],
+      orders: [],
+      payments: [],
+      checks: []
+    });
+  });
+
+  // B. Inferir y asociar vehículos y visitas a los clientes
+  (vehicles || []).forEach(v => {
+    const rawName = (v.clientName || 'Cliente Particular').trim();
+    const key = rawName.toLowerCase();
+
+    let client = clientsMap.get(key);
+    if (!client) {
+      // Buscar si coincide por CUIT/DNI
+      if (v.cuitDni) {
+        for (const c of clientsMap.values()) {
+          if (c.taxId && c.taxId.trim() === v.cuitDni.trim()) {
+            client = c;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!client) {
+      client = {
+        id: `cli-${encodeURIComponent(key)}`,
+        name: rawName,
+        clientName: rawName,
+        contactPerson: '',
+        clientType: v.clientType || 'particular',
+        taxId: v.cuitDni || '',
+        cuitDni: v.cuitDni || '',
+        taxCategory: 'Consumidor Final',
+        email: '',
+        phone: v.phone || '',
+        address: v.address || '',
+        city: '',
+        province: '',
+        postalCode: '',
+        paymentTermDays: v.clientType === 'fleet' ? 30 : 0,
+        creditLimit: 0,
+        notes: '',
+        vehicles: [],
+        orders: [],
+        payments: [],
+        checks: []
+      };
+      clientsMap.set(key, client);
+    }
+
+    // Agregar vehículo a la flota del cliente si no existe ya
+    if (!client.vehicles.some(cv => cv.plate === v.plate)) {
+      client.vehicles.push(v);
+    }
+
+    // Si el cliente no tiene teléfono o CUIT y el vehículo sí, completar los datos
+    if (!client.phone && v.phone) client.phone = v.phone;
+    if (!client.taxId && v.cuitDni) {
+      client.taxId = v.cuitDni;
+      client.cuitDni = v.cuitDni;
+    }
+    if (!client.address && v.address) client.address = v.address;
+
+    // Agregar todas las órdenes de trabajo / visitas como débitos
+    (v.history || []).forEach(h => {
+      client.orders.push({
+        ...h,
+        vehiclePlate: v.plate,
+        vehicleModel: v.model,
+        vehicleId: v.id
+      });
+    });
+  });
+
+  // C. Imputar Pagos y Cobranzas Recibidas
+  (dbPayments || []).forEach(p => {
+    let matchedClient = null;
+
+    // 1. Por ID directo
+    if (p.client_id) {
+      for (const c of clientsMap.values()) {
+        if (c.id === p.client_id) {
+          matchedClient = c;
+          break;
+        }
+      }
+    }
+
+    // 2. Por coincidencia en notas o nombres si no tiene UUID directo
+    if (!matchedClient && p.notes) {
+      const noteLower = p.notes.toLowerCase();
+      for (const c of clientsMap.values()) {
+        if (noteLower.includes(c.name.toLowerCase())) {
+          matchedClient = c;
+          break;
+        }
+      }
+    }
+
+    if (matchedClient) {
+      matchedClient.payments.push({
+        id: p.id,
+        date: p.date,
+        amount: Number(p.amount) || 0,
+        method: p.payment_method || 'Efectivo',
+        checkId: p.check_id,
+        receiptNumber: p.receipt_number || '',
+        note: p.notes || ''
+      });
+    }
+  });
+
+  // D. Asociar Cheques en Cartera entregados por este cliente
+  (checks || []).forEach(chk => {
+    const issuer = (chk.issuer || '').toLowerCase().trim();
+    if (!issuer) return;
+    for (const c of clientsMap.values()) {
+      if (c.name.toLowerCase().includes(issuer) || issuer.includes(c.name.toLowerCase())) {
+        if (!c.checks.some(existingChk => existingChk.id === chk.id)) {
+          c.checks.push(chk);
+        }
+      }
+    }
+  });
+
+  // E. Calcular Totales, Saldo Deudor, Plazo y Días de Mora
+  return Array.from(clientsMap.values()).map(client => {
+    const totalBilled = client.orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const totalPaid = client.payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const balanceDue = Math.max(0, totalBilled - totalPaid);
+
+    let isOverdue = false;
+    let overdueDays = 0;
+
+    if (balanceDue > 0) {
+      // Ordenar visitas de más vieja a más nueva para consumir pagos con método FIFO
+      const sortedOrders = [...client.orders].sort((a, b) => new Date(a.date) - new Date(b.date));
+      let paidCover = totalPaid;
+      let oldestUnpaidDate = null;
+
+      for (const ord of sortedOrders) {
+        const ordTotal = Number(ord.total) || 0;
+        if (paidCover >= ordTotal) {
+          paidCover -= ordTotal;
+        } else {
+          oldestUnpaidDate = ord.date;
+          break;
+        }
+      }
+
+      if (oldestUnpaidDate) {
+        const orderDate = new Date(oldestUnpaidDate);
+        const daysElapsed = Math.floor((Date.now() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+        const termDays = client.paymentTermDays || 0;
+        if (daysElapsed > termDays) {
+          isOverdue = true;
+          overdueDays = daysElapsed - termDays;
+        }
+      }
+    }
+
+    return {
+      ...client,
+      totalBilled,
+      totalPaid,
+      balanceDue,
+      isOverdue,
+      overdueDays
+    };
+  });
+}
+
+// 9. Guardar o actualizar un Cliente en Supabase
+export async function saveClientToDb(workshopId, clientData) {
+  if (!isSupabaseConfigured || !supabase || !workshopId) return null;
+
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientData.id);
+    const row = {
+      workshop_id: workshopId,
+      name: clientData.name || clientData.clientName,
+      contact_person: clientData.contactPerson || '',
+      client_type: clientData.clientType || 'particular',
+      tax_id: clientData.taxId || clientData.cuitDni || '',
+      tax_category: clientData.taxCategory || 'Consumidor Final',
+      email: clientData.email || '',
+      phone: clientData.phone || '',
+      address: clientData.address || '',
+      city: clientData.city || '',
+      province: clientData.province || '',
+      postal_code: clientData.postalCode || '',
+      payment_term_days: parseInt(clientData.paymentTermDays, 10) || 0,
+      credit_limit: parseFloat(clientData.creditLimit) || 0,
+      notes: clientData.notes || '',
+      updated_at: new Date().toISOString()
+    };
+
+    if (isUuid) {
+      row.id = clientData.id;
+    }
+
+    const { data, error } = await supabase
+      .from('clients')
+      .upsert(row)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error guardando cliente en Supabase:', error);
+      return null;
+    }
+
+    return data;
+  } catch (e) {
+    console.error('Fallo en saveClientToDb:', e);
+    return null;
+  }
+}
+
+// 10. Guardar o registrar un Cobro / Pago de Cliente en Supabase
+export async function saveClientPaymentToDb(workshopId, paymentData) {
+  if (!isSupabaseConfigured || !supabase || !workshopId) return null;
+
+  try {
+    const isClientUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentData.entityId || paymentData.clientId);
+    const row = {
+      workshop_id: workshopId,
+      client_id: isClientUuid ? (paymentData.entityId || paymentData.clientId) : null,
+      date: paymentData.date || new Date().toISOString().split('T')[0],
+      amount: parseFloat(paymentData.amount) || 0,
+      payment_method: paymentData.method || paymentData.paymentMethod || 'Efectivo',
+      check_id: paymentData.checkId || null,
+      receipt_number: paymentData.receiptNumber || '',
+      notes: paymentData.notes || ''
+    };
+
+    const { data, error } = await supabase
+      .from('client_payments')
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error guardando pago de cliente en Supabase:', error);
+      return null;
+    }
+
+    return data;
+  } catch (e) {
+    console.error('Fallo en saveClientPaymentToDb:', e);
+    return null;
+  }
+}
+
