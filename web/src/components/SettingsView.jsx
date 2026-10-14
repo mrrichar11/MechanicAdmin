@@ -93,12 +93,34 @@ export default function SettingsView({
           </p>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition shadow-2xs"
-        >
-          Cerrar Sesión
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('¿Seguro que deseas limpiar todos los datos de prueba? Esto dejará la base de datos vacía para que Iván cargue sus planillas de Excel desde cero.')) {
+                localStorage.removeItem('workshop_vehicles_data');
+                localStorage.removeItem('workshop_drafts_data');
+                localStorage.removeItem('workshop_suppliers_data');
+                localStorage.removeItem('workshop_clients_data');
+                localStorage.removeItem('workshop_checks_data');
+                localStorage.removeItem('workshop_withdrawals_data');
+                localStorage.removeItem('workshop_cash_data');
+                window.location.reload();
+              }
+            }}
+            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-2xs"
+            title="Deja la base de datos limpia en 0 para cargar las planillas"
+          >
+            🧹 Limpiar Datos de Prueba
+          </button>
+
+          <button
+            onClick={onLogout}
+            className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-xl text-xs font-bold transition shadow-2xs"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
       </div>
 
       {saveSuccess && (

@@ -59,13 +59,63 @@ export default function App() {
     return saved ? JSON.parse(saved) : WORKSHOP_INFO;
   });
 
-  const [vehicles, setVehicles] = useState(INITIAL_VEHICLES);
-  const [drafts, setDrafts] = useState(INITIAL_BOT_DRAFTS);
-  const [suppliers, setSuppliers] = useState(INITIAL_SUPPLIERS);
-  const [clientAccounts, setClientAccounts] = useState(INITIAL_CLIENT_ACCOUNTS);
-  const [checks, setChecks] = useState(INITIAL_CHECKS);
-  const [withdrawals, setWithdrawals] = useState(INITIAL_OWNER_WITHDRAWALS);
-  const [cashBalance, setCashBalance] = useState(INITIAL_CASH_BALANCE);
+  const [vehicles, setVehicles] = useState(() => {
+    const saved = localStorage.getItem('workshop_vehicles_data');
+    return saved ? JSON.parse(saved) : INITIAL_VEHICLES;
+  });
+  const [drafts, setDrafts] = useState(() => {
+    const saved = localStorage.getItem('workshop_drafts_data');
+    return saved ? JSON.parse(saved) : INITIAL_BOT_DRAFTS;
+  });
+  const [suppliers, setSuppliers] = useState(() => {
+    const saved = localStorage.getItem('workshop_suppliers_data');
+    return saved ? JSON.parse(saved) : INITIAL_SUPPLIERS;
+  });
+  const [clientAccounts, setClientAccounts] = useState(() => {
+    const saved = localStorage.getItem('workshop_clients_data');
+    return saved ? JSON.parse(saved) : INITIAL_CLIENT_ACCOUNTS;
+  });
+  const [checks, setChecks] = useState(() => {
+    const saved = localStorage.getItem('workshop_checks_data');
+    return saved ? JSON.parse(saved) : INITIAL_CHECKS;
+  });
+  const [withdrawals, setWithdrawals] = useState(() => {
+    const saved = localStorage.getItem('workshop_withdrawals_data');
+    return saved ? JSON.parse(saved) : INITIAL_OWNER_WITHDRAWALS;
+  });
+  const [cashBalance, setCashBalance] = useState(() => {
+    const saved = localStorage.getItem('workshop_cash_data');
+    return saved ? JSON.parse(saved) : INITIAL_CASH_BALANCE;
+  });
+
+  // Guardar en localStorage cuando cambian
+  useEffect(() => {
+    localStorage.setItem('workshop_vehicles_data', JSON.stringify(vehicles));
+  }, [vehicles]);
+
+  useEffect(() => {
+    localStorage.setItem('workshop_drafts_data', JSON.stringify(drafts));
+  }, [drafts]);
+
+  useEffect(() => {
+    localStorage.setItem('workshop_suppliers_data', JSON.stringify(suppliers));
+  }, [suppliers]);
+
+  useEffect(() => {
+    localStorage.setItem('workshop_clients_data', JSON.stringify(clientAccounts));
+  }, [clientAccounts]);
+
+  useEffect(() => {
+    localStorage.setItem('workshop_checks_data', JSON.stringify(checks));
+  }, [checks]);
+
+  useEffect(() => {
+    localStorage.setItem('workshop_withdrawals_data', JSON.stringify(withdrawals));
+  }, [withdrawals]);
+
+  useEffect(() => {
+    localStorage.setItem('workshop_cash_data', JSON.stringify(cashBalance));
+  }, [cashBalance]);
 
   // Navegación de Vistas: 'vehicles' | 'drafts' | 'finances' | 'settings'
   const [currentView, setCurrentView] = useState('vehicles');

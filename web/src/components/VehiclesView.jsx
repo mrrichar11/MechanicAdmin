@@ -80,109 +80,139 @@ export default function VehiclesView({ vehicles, onSelectVehicle, onOpenNewOrder
 
       </div>
 
-      {/* Grid de Vehículos con Tarjetas Tactile / Relieve */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredVehicles.map((veh) => {
-          const lastVisit = veh.history && veh.history[0];
-          return (
-            <div
-              key={veh.id}
-              className="bg-white border-2 border-slate-200 hover:border-slate-400 rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between"
+      {/* Grid de Vehículos con Tarjetas Tactile / Relieve o Estado Vacío */}
+      {filteredVehicles.length === 0 ? (
+        <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-12 text-center shadow-xs flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-amber-100 border border-amber-300 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
+            <FileSpreadsheet className="w-8 h-8 text-amber-700" />
+          </div>
+          <h3 className="text-base font-black text-slate-900 mb-1">
+            No hay vehículos cargados todavía
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
+            Comienza importando tus planillas Excel históricas del taller o añade un vehículo manualmente.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={onOpenExcelImport}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-md hover:shadow-lg transition"
             >
-              <div>
-                {/* Header: Patente Mercosur en relieve y Badge */}
-                <div className="flex items-center justify-between gap-3 mb-3.5">
-                  <div className="inline-flex items-center border-2 border-slate-800 rounded-lg overflow-hidden shadow-sm bg-white">
-                    <span className="bg-[#003399] text-white text-[10px] font-black px-2 py-1 tracking-wider">
-                      RA
-                    </span>
-                    <span className="font-mono text-sm font-black text-slate-950 px-3 py-0.5 tracking-wider">
-                      {veh.plate}
-                    </span>
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>Importar Planillas Excel (.xlsx)</span>
+            </button>
+            <button
+              onClick={onAddNewVehicle}
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-md hover:shadow-lg transition"
+            >
+              <Plus className="w-4 h-4 text-amber-400" />
+              <span>Cargar Vehículo Manual</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredVehicles.map((veh) => {
+            const lastVisit = veh.history && veh.history[0];
+            return (
+              <div
+                key={veh.id}
+                className="bg-white border-2 border-slate-200 hover:border-slate-400 rounded-2xl p-5 shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-1 flex flex-col justify-between"
+              >
+                <div>
+                  {/* Header: Patente Mercosur en relieve y Badge */}
+                  <div className="flex items-center justify-between gap-3 mb-3.5">
+                    <div className="inline-flex items-center border-2 border-slate-800 rounded-lg overflow-hidden shadow-sm bg-white">
+                      <span className="bg-[#003399] text-white text-[10px] font-black px-2 py-1 tracking-wider">
+                        RA
+                      </span>
+                      <span className="font-mono text-sm font-black text-slate-950 px-3 py-0.5 tracking-wider">
+                        {veh.plate}
+                      </span>
+                    </div>
+                    
+                    {veh.clientType === 'fleet' ? (
+                      <span className="bg-blue-100 text-blue-900 border border-blue-300 text-[11px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                        <Building2 className="w-3 h-3 text-blue-700" /> Flota Empresa
+                      </span>
+                    ) : (
+                      <span className="bg-purple-100 text-purple-900 border border-purple-300 text-[11px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                        <User className="w-3 h-3 text-purple-700" /> Particular
+                      </span>
+                    )}
                   </div>
-                  
-                  {veh.clientType === 'fleet' ? (
-                    <span className="bg-blue-100 text-blue-900 border border-blue-300 text-[11px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
-                      <Building2 className="w-3 h-3 text-blue-700" /> Flota Empresa
+
+                  {/* DUEÑO / TITULAR DESTACADO */}
+                  <div className="mb-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
+                      Titular / Dueño:
                     </span>
-                  ) : (
-                    <span className="bg-purple-100 text-purple-900 border border-purple-300 text-[11px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2xs">
-                      <User className="w-3 h-3 text-purple-700" /> Particular
-                    </span>
+                    <div className="text-base font-black text-slate-950 flex items-center gap-2">
+                      <span className="bg-amber-100 text-amber-950 px-2 py-0.5 rounded border border-amber-300">
+                        {veh.clientName}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Modelo */}
+                  <h3 className="text-sm font-bold text-slate-800 leading-snug mt-1">
+                    {veh.model}
+                  </h3>
+
+                  {/* KILÓMETROS & VISITAS DESTACADAS CON RELIEVE */}
+                  <div className="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                        <Gauge className="w-3 h-3 text-slate-600" /> Odómetro
+                      </span>
+                      <span className="font-mono text-sm font-black text-slate-950 block mt-0.5">
+                        {veh.currentKm?.toLocaleString()} km
+                      </span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
+                        <Wrench className="w-3 h-3 text-slate-600" /> Historial
+                      </span>
+                      <span className="text-sm font-black text-slate-950 block mt-0.5">
+                        {veh.history?.length || 0} visitas
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Última visita */}
+                  {lastVisit && (
+                    <div className="mt-3 bg-slate-100/70 p-2.5 rounded-xl border border-slate-200 text-xs">
+                      <div className="text-[10px] font-bold text-slate-500 mb-0.5 uppercase tracking-wide">
+                        Último Servicio ({lastVisit.date}):
+                      </div>
+                      <p className="truncate text-slate-800 font-semibold text-[11px]">
+                        {lastVisit.tasks?.[0] || 'Mantenimiento preventivo'}
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                {/* DUEÑO / TITULAR DESTACADO */}
-                <div className="mb-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-                    Titular / Dueño:
-                  </span>
-                  <div className="text-base font-black text-slate-950 flex items-center gap-2">
-                    <span className="bg-amber-100 text-amber-950 px-2 py-0.5 rounded border border-amber-300">
-                      {veh.clientName}
-                    </span>
-                  </div>
+                {/* Botones de acción con efecto botón real */}
+                <div className="mt-5 pt-3 border-t border-slate-200 flex items-center justify-between gap-2.5">
+                  <button
+                    onClick={() => onSelectVehicle(veh)}
+                    className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm hover:shadow hover:-translate-y-0.5"
+                  >
+                    <History className="w-3.5 h-3.5 text-slate-600" />
+                    Ver Historial
+                  </button>
+                  <button
+                    onClick={() => onOpenNewOrder(veh)}
+                    className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-400" /> Cargar Visita
+                  </button>
                 </div>
 
-                {/* Modelo */}
-                <h3 className="text-sm font-bold text-slate-800 leading-snug mt-1">
-                  {veh.model}
-                </h3>
-
-                {/* KILÓMETROS & VISITAS DESTACADAS CON RELIEVE */}
-                <div className="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 gap-3 text-xs">
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                      <Gauge className="w-3 h-3 text-slate-600" /> Odómetro
-                    </span>
-                    <span className="font-mono text-sm font-black text-slate-950 block mt-0.5">
-                      {veh.currentKm?.toLocaleString()} km
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                    <span className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                      <Wrench className="w-3 h-3 text-slate-600" /> Historial
-                    </span>
-                    <span className="text-sm font-black text-slate-950 block mt-0.5">
-                      {veh.history?.length || 0} visitas
-                    </span>
-                  </div>
-                </div>
-
-                {/* Última visita */}
-                {lastVisit && (
-                  <div className="mt-3 bg-slate-100/70 p-2.5 rounded-xl border border-slate-200 text-xs">
-                    <div className="text-[10px] font-bold text-slate-500 mb-0.5 uppercase tracking-wide">
-                      Último Servicio ({lastVisit.date}):
-                    </div>
-                    <p className="truncate text-slate-800 font-semibold text-[11px]">
-                      {lastVisit.tasks?.[0] || 'Mantenimiento preventivo'}
-                    </p>
-                  </div>
-                )}
               </div>
-
-              {/* Botones de acción con efecto botón real */}
-              <div className="mt-5 pt-3 border-t border-slate-200 flex items-center justify-between gap-2.5">
-                <button
-                  onClick={() => onSelectVehicle(veh)}
-                  className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm hover:shadow hover:-translate-y-0.5"
-                >
-                  <History className="w-3.5 h-3.5 text-slate-600" />
-                  Ver Historial
-                </button>
-                <button
-                  onClick={() => onOpenNewOrder(veh)}
-                  className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md hover:shadow-lg hover:-translate-y-0.5"
-                >
-                  <Plus className="w-3.5 h-3.5 text-amber-400" /> Cargar Visita
-                </button>
-              </div>
-
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
     </div>
   );

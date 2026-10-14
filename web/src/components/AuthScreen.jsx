@@ -78,6 +78,12 @@ export default function AuthScreen({ onLoginSuccess }) {
     setIsRegistering(false);
   };
 
+  const handleQuickDemoRichard = () => {
+    setEmail('mrrichar11@gmail.com');
+    setPassword('Richar2026!');
+    setIsRegistering(false);
+  };
+
   const handleDirectDemoIvan = () => {
     onLoginSuccess({
       email: 'ivanluque334@gmail.com',
@@ -90,10 +96,16 @@ export default function AuthScreen({ onLoginSuccess }) {
     });
   };
 
-  const handleQuickDemoGeneric = () => {
-    setEmail('contacto@mitaller.com');
-    setPassword('Taller2026!');
-    setIsRegistering(false);
+  const handleDirectDemoRichard = () => {
+    onLoginSuccess({
+      email: 'mrrichar11@gmail.com',
+      workshopName: 'Taller de Pruebas Richard',
+      ownerName: 'Richard Dev',
+      address: 'Laboratorio de Desarrollo',
+      phone: 'WhatsApp Conectado',
+      isDemo: true,
+      isOnline: false
+    });
   };
 
   return (
@@ -232,7 +244,7 @@ export default function AuthScreen({ onLoginSuccess }) {
           {/* Accesos rápidos Demo para pruebas */}
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
             <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-              Credenciales de prueba sugeridas:
+              Acceso Rápido por Perfil:
             </span>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -241,15 +253,15 @@ export default function AuthScreen({ onLoginSuccess }) {
                 className="py-1.5 px-2 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-lg font-black text-[11px] transition shadow-2xs text-center"
                 title="Rellena ivanluque334@gmail.com / Luque2026!"
               >
-                Cargar Iván Luque
+                👤 Iván Luque
               </button>
               <button
                 type="button"
-                onClick={handleDirectDemoIvan}
-                className="py-1.5 px-2 bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300 rounded-lg font-bold text-[11px] transition shadow-2xs text-center"
-                title="Entrar directo sin internet"
+                onClick={handleQuickDemoRichard}
+                className="py-1.5 px-2 bg-blue-100 hover:bg-blue-200 text-blue-950 border border-blue-300 rounded-lg font-black text-[11px] transition shadow-2xs text-center"
+                title="Rellena mrrichar11@gmail.com / Richar2026!"
               >
-                Entrar Demo Directo
+                🛠️ Usuario Pruebas
               </button>
             </div>
           </div>
