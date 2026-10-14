@@ -13,7 +13,8 @@ import {
   LogOut,
   Sparkles,
   Wifi,
-  WifiOff
+  WifiOff,
+  AlertCircle
 } from 'lucide-react';
 
 export default function AdminWhatsAppConnectionModal({ 
