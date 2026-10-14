@@ -216,7 +216,7 @@ export default function AuthScreen({ onLoginSuccess }) {
       </div>
 
       <div className="text-center mt-6 text-slate-500 text-xs font-semibold">
-        Sincronización en la nube con Supabase • Despliegue continuo con GitHub
+        Plataforma Segura en la Nube • Respaldo Automático de Datos
       </div>
 
     </div>

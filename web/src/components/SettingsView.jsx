@@ -6,8 +6,6 @@ import {
   Phone, 
   Mail, 
   Save, 
-  Database, 
-  GitBranch, 
   Sparkles, 
   Printer, 
   CheckCircle2, 
@@ -18,9 +16,9 @@ import {
   Download,
   Upload,
   ShieldCheck,
-  FileJson
+  FileJson,
+  Check
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 export default function SettingsView({ 
   workshopInfo, 
@@ -45,15 +43,6 @@ export default function SettingsView({
   const [logoUrl, setLogoUrl] = useState(workshopInfo.logoUrl || '');
   const [defaultTaxRate, setDefaultTaxRate] = useState(workshopInfo.taxRate || 21);
   const [defaultLaborCost, setDefaultLaborCost] = useState(workshopInfo.defaultLaborCost || 150000);
-
-  // Supabase Settings
-  const [supabaseUrl, setSupabaseUrl] = useState(
-    localStorage.getItem('workshop_supabase_url') || import.meta.env.VITE_SUPABASE_URL || ''
-  );
-  const [supabaseKey, setSupabaseKey] = useState(
-    localStorage.getItem('workshop_supabase_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-  );
-  const [supabaseStatus, setSupabaseStatus] = useState(isSupabaseConfigured ? 'connected' : 'offline');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleSaveWorkshop = (e) => {
@@ -73,30 +62,6 @@ export default function SettingsView({
     onSaveWorkshopInfo(updated);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
-  };
-
-  const handleSaveSupabaseConfig = (e) => {
-    e.preventDefault();
-    if (supabaseUrl && supabaseKey) {
-      let cleaned = supabaseUrl.trim().replace(/^["']|["']$/g, '');
-      cleaned = cleaned.replace(/\/+$/, '');
-      cleaned = cleaned.replace(/\/rest\/v1\/?$/, '');
-      cleaned = cleaned.replace(/\/auth\/v1\/?$/, '');
-      if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
-        cleaned = `https://${cleaned}`;
-      }
-
-      localStorage.setItem('workshop_supabase_url', cleaned);
-      localStorage.setItem('workshop_supabase_key', supabaseKey.trim().replace(/^["']|["']$/g, ''));
-      setSupabaseStatus('connected');
-      alert('Credenciales de Supabase guardadas y validadas correctamente. La app se recargará para sincronizar.');
-      window.location.reload();
-    } else {
-      localStorage.removeItem('workshop_supabase_url');
-      localStorage.removeItem('workshop_supabase_key');
-      setSupabaseStatus('offline');
-      alert('Configuración de Supabase borrada. Operando en modo local.');
-    }
   };
 
   const handleExportBackup = () => {
@@ -359,77 +324,21 @@ export default function SettingsView({
         </div>
       </form>
 
-      {/* Configuración de Nube (Supabase) */}
-      <form onSubmit={handleSaveSupabaseConfig} className="bg-white border-2 border-slate-200 p-6 rounded-2xl shadow-md space-y-4 text-xs">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-            <Database className="w-4 h-4 text-emerald-600" />
-            2. Base de Datos Central de la Plataforma (Supabase)
-          </h3>
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-            supabaseStatus === 'connected' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-100 text-slate-600'
-          }`}>
-            {supabaseStatus === 'connected' ? '● Base de Datos Conectada' : 'Modo Local / Demo'}
-          </span>
-        </div>
-
-        <p className="text-slate-500">
-          Este proyecto de Supabase es <strong className="text-slate-800">único y central para toda la plataforma</strong>. Alberga a todos los talleres registrados de forma segura y aislada (multi-tenant con Row Level Security).
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Supabase Project URL</label>
-            <input
-              type="text"
-              placeholder="https://xyzcompany.supabase.co"
-              value={supabaseUrl}
-              onChange={(e) => setSupabaseUrl(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono text-xs focus:bg-white focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">Supabase Anon Public Key</label>
-            <input
-              type="password"
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              value={supabaseKey}
-              onChange={(e) => setSupabaseKey(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-mono text-xs focus:bg-white focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
-          <p className="font-bold text-slate-800">📄 Archivo SQL para crear las tablas listo:</p>
-          <p>En la carpeta del proyecto ya tienes generado el archivo <strong className="font-mono text-slate-900">supabase_schema.sql</strong>. Solo copias su contenido y lo pegas en el <em>SQL Editor</em> de Supabase.</p>
-        </div>
-
-        <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-sm"
-          >
-            Guardar Conexión Supabase
-          </button>
-        </div>
-      </form>
-
-      {/* 3. Copias de Seguridad (Backups) & Resguardo Físico */}
+      {/* 2. Copias de Seguridad (Backups) & Resguardo de Datos */}
       <div className="bg-white border-2 border-slate-200 p-6 rounded-2xl shadow-md space-y-4 text-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200">
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            3. Copias de Seguridad (Backups) & Resguardo de Datos
+            2. Copias de Seguridad (Backups) & Resguardo de Datos
           </h3>
-          <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full self-start sm:self-auto">
-            {vehicles.length} vehículos • {vehicles.reduce((acc, v) => acc + (v.history?.length || 0), 0)} visitas
+          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full self-start sm:self-auto flex items-center gap-1">
+            <Check className="w-3 h-3 text-emerald-600" />
+            Nube Activa & Sincronizada
           </span>
         </div>
 
         <p className="text-slate-600 leading-relaxed">
-          Tus datos se guardan de forma segura y aislada en tu base de datos de Supabase. Para mayor tranquilidad y seguridad total, puedes descargar un archivo de copia de seguridad físico a tu dispositivo o restaurar datos anteriores en cualquier momento.
+          Todos los vehículos, clientes, órdenes de trabajo y cuentas se resguardan automáticamente en la nube de forma segura y privada para tu taller. Adicionalmente, puedes descargar una copia física completa a tu dispositivo o restaurar información en cualquier momento.
         </p>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
@@ -452,28 +361,6 @@ export default function SettingsView({
               className="hidden" 
             />
           </label>
-        </div>
-      </div>
-
-      {/* Información de Versión y Despliegue con GitHub Releases */}
-      <div className="bg-white border-2 border-slate-200 p-6 rounded-2xl shadow-md space-y-3 text-xs">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5 pb-2 border-b border-slate-200">
-          <GitBranch className="w-4 h-4 text-slate-900" />
-          4. Versiones & Despliegue Continuo (GitHub Releases)
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-600">
-          <div>
-            <p className="font-bold text-slate-800">Versión del Sistema:</p>
-            <p className="font-mono font-bold text-emerald-700 text-sm">v1.2.0-release</p>
-            <p className="text-[11px] text-slate-400 mt-1">Listo para subir a repositorio de GitHub (ej. github.com/tu-usuario/taller-mecanica).</p>
-          </div>
-
-          <div>
-            <p className="font-bold text-slate-800">Hosting Recomendado:</p>
-            <p className="font-medium text-slate-700">Vercel o Netlify (Gratis y conectado a tu rama `main`).</p>
-            <p className="text-[11px] text-slate-400 mt-1">Cada vez que hagas un release o push a GitHub, la web online del taller se actualiza sola en 30 segundos.</p>
-          </div>
         </div>
       </div>
 

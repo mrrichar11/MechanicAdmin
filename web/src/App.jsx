@@ -139,6 +139,11 @@ export default function App() {
     localStorage.setItem('workshop_cash_data', JSON.stringify(cashBalance));
   }, [cashBalance]);
 
+  // Actualizar título de la pestaña del navegador
+  useEffect(() => {
+    document.title = workshopInfo.name || 'Mi Taller';
+  }, [workshopInfo.name]);
+
   // Restaurar sesión de Supabase al recargar la página
   useEffect(() => {
     if (!supabase) return;
