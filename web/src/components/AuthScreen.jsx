@@ -72,42 +72,6 @@ export default function AuthScreen({ onLoginSuccess }) {
     }
   };
 
-  const handleQuickDemoIvan = () => {
-    setEmail('ivanluque334@gmail.com');
-    setPassword('Luque2026!');
-    setIsRegistering(false);
-  };
-
-  const handleQuickDemoRichard = () => {
-    setEmail('mrrichar11@gmail.com');
-    setPassword('Richar2026!');
-    setIsRegistering(false);
-  };
-
-  const handleDirectDemoIvan = () => {
-    onLoginSuccess({
-      email: 'ivanluque334@gmail.com',
-      workshopName: 'Bosch Car Service',
-      ownerName: 'Iván Luque',
-      address: 'Dentesano 61, Sunchales, Santa Fe',
-      phone: '03493-423274 / 15403364',
-      isDemo: true,
-      isOnline: false
-    });
-  };
-
-  const handleDirectDemoRichard = () => {
-    onLoginSuccess({
-      email: 'mrrichar11@gmail.com',
-      workshopName: 'Taller de Pruebas Richard',
-      ownerName: 'Richard Dev',
-      address: 'Laboratorio de Desarrollo',
-      phone: 'WhatsApp Conectado',
-      isDemo: true,
-      isOnline: false
-    });
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-4">
       
@@ -225,7 +189,7 @@ export default function AuthScreen({ onLoginSuccess }) {
             </button>
           </form>
 
-          {/* Alternar entre login y registro */}
+          {/* Link para registro o login libre */}
           <div className="text-center pt-2 border-t border-slate-200">
             <button
               type="button"
@@ -239,31 +203,6 @@ export default function AuthScreen({ onLoginSuccess }) {
                 ? '¿Ya tienes una cuenta? Inicia sesión aquí' 
                 : '¿Nuevo taller? Regístrate aquí para crear tu cuenta'}
             </button>
-          </div>
-
-          {/* Accesos rápidos Demo para pruebas */}
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-            <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-              Acceso Rápido por Perfil:
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleQuickDemoIvan}
-                className="py-1.5 px-2 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-lg font-black text-[11px] transition shadow-2xs text-center"
-                title="Rellena ivanluque334@gmail.com / Luque2026!"
-              >
-                👤 Iván Luque
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickDemoRichard}
-                className="py-1.5 px-2 bg-blue-100 hover:bg-blue-200 text-blue-950 border border-blue-300 rounded-lg font-black text-[11px] transition shadow-2xs text-center"
-                title="Rellena mrrichar11@gmail.com / Richar2026!"
-              >
-                🛠️ Usuario Pruebas
-              </button>
-            </div>
           </div>
 
         </div>
