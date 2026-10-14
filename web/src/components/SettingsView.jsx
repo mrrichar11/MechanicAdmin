@@ -14,7 +14,11 @@ import {
   AlertCircle,
   Image,
   Percent,
-  DollarSign
+  DollarSign,
+  Download,
+  Upload,
+  ShieldCheck,
+  FileJson
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
@@ -22,7 +26,15 @@ export default function SettingsView({
   workshopInfo, 
   onSaveWorkshopInfo, 
   userSession, 
-  onLogout 
+  onLogout,
+  vehicles = [],
+  suppliers = [],
+  clientAccounts = [],
+  checks = [],
+  withdrawals = [],
+  cashBalance = {},
+  onRestoreBackup,
+  currentWorkshop
 }) {
   const [name, setName] = useState(workshopInfo.name || '');
   const [owner, setOwner] = useState(workshopInfo.owner || '');
@@ -85,6 +97,62 @@ export default function SettingsView({
       setSupabaseStatus('offline');
       alert('Configuración de Supabase borrada. Operando en modo local.');
     }
+  };
+
+  const handleExportBackup = () => {
+    const backupData = {
+      systemVersion: '1.2.0',
+      exportTimestamp: new Date().toISOString(),
+      workshopId: currentWorkshop?.id || 'local',
+      workshop: {
+        name,
+        owner,
+        address,
+        phone,
+        email,
+        cuit,
+        logoUrl,
+        taxRate: defaultTaxRate,
+        defaultLaborCost
+      },
+      vehicles,
+      suppliers,
+      clientAccounts,
+      checks,
+      withdrawals,
+      cashBalance
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `backup_${(name || 'taller').replace(/[^a-z0-9]/gi, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleRestoreFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed.vehicles && Array.isArray(parsed.vehicles)) {
+          if (window.confirm(`Se encontraron ${parsed.vehicles.length} vehículos y sus visitas en la copia de seguridad. ¿Deseas restaurarlos en tu taller?`)) {
+            if (onRestoreBackup) onRestoreBackup(parsed);
+          }
+        } else {
+          alert('El archivo seleccionado no es una copia de seguridad válida.');
+        }
+      } catch (err) {
+        alert('Error al leer el archivo: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -348,11 +416,50 @@ export default function SettingsView({
         </div>
       </form>
 
+      {/* 3. Copias de Seguridad (Backups) & Resguardo Físico */}
+      <div className="bg-white border-2 border-slate-200 p-6 rounded-2xl shadow-md space-y-4 text-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200">
+          <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            3. Copias de Seguridad (Backups) & Resguardo de Datos
+          </h3>
+          <span className="text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full self-start sm:self-auto">
+            {vehicles.length} vehículos • {vehicles.reduce((acc, v) => acc + (v.history?.length || 0), 0)} visitas
+          </span>
+        </div>
+
+        <p className="text-slate-600 leading-relaxed">
+          Tus datos se guardan de forma segura y aislada en tu base de datos de Supabase. Para mayor tranquilidad y seguridad total, puedes descargar un archivo de copia de seguridad físico a tu dispositivo o restaurar datos anteriores en cualquier momento.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={handleExportBackup}
+            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition text-xs"
+          >
+            <Download className="w-4 h-4 text-amber-400" />
+            <span>Descargar Copia de Seguridad (.json)</span>
+          </button>
+
+          <label className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold border-2 border-slate-300 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-xs transition text-xs">
+            <Upload className="w-4 h-4 text-slate-600" />
+            <span>Restaurar Copia desde Archivo</span>
+            <input 
+              type="file" 
+              accept=".json" 
+              onChange={handleRestoreFile} 
+              className="hidden" 
+            />
+          </label>
+        </div>
+      </div>
+
       {/* Información de Versión y Despliegue con GitHub Releases */}
       <div className="bg-white border-2 border-slate-200 p-6 rounded-2xl shadow-md space-y-3 text-xs">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5 pb-2 border-b border-slate-200">
           <GitBranch className="w-4 h-4 text-slate-900" />
-          3. Versiones & Despliegue Continuo (GitHub Releases)
+          4. Versiones & Despliegue Continuo (GitHub Releases)
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-600">

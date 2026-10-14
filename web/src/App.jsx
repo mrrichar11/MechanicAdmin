@@ -7,14 +7,17 @@ import {
   User, 
   MapPin, 
   Phone, 
-  Wrench,
-  Sparkles,
-  Inbox,
-  DollarSign,
-  Wallet,
-  FileCheck,
-  Settings,
-  LogOut
+  Wrench, 
+  Sparkles, 
+  Inbox, 
+  DollarSign, 
+  Wallet, 
+  FileCheck, 
+  Settings, 
+  LogOut,
+  RefreshCw,
+  CloudCheck,
+  ShieldCheck
 } from 'lucide-react';
 
 import { 
@@ -47,12 +50,26 @@ import {
   NewSupplierModal 
 } from './components/FinanceModals';
 
+import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
+import { 
+  getOrCreateWorkshop, 
+  loadWorkshopData, 
+  saveWorkshopInfoToDb, 
+  saveVehicleToDb, 
+  saveWorkOrderToDb, 
+  bulkImportToSupabase,
+  syncLocalDataIfDbEmpty
+} from './services/databaseService';
+
 export default function App() {
-  // Sesión de Usuario y Perfil del Taller (requiere login al entrar)
+  // Sesión de Usuario
   const [userSession, setUserSession] = useState(() => {
     const saved = localStorage.getItem('workshop_user_session');
     return saved ? JSON.parse(saved) : null;
   });
+
+  const [currentWorkshop, setCurrentWorkshop] = useState(null);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
 
   const [workshopInfo, setWorkshopInfo] = useState(() => {
     const saved = localStorage.getItem('workshop_info_profile');
@@ -88,7 +105,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : INITIAL_CASH_BALANCE;
   });
 
-  // Guardar en localStorage cuando cambian
+  // Guardar en localStorage como caché secundaria
   useEffect(() => {
     localStorage.setItem('workshop_vehicles_data', JSON.stringify(vehicles));
   }, [vehicles]);
@@ -117,6 +134,84 @@ export default function App() {
     localStorage.setItem('workshop_cash_data', JSON.stringify(cashBalance));
   }, [cashBalance]);
 
+  // Restaurar sesión de Supabase al recargar la página
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      if (data?.session?.user) {
+        const u = data.session.user;
+        setUserSession({
+          userId: u.id,
+          email: u.email,
+          workshopName: u.user_metadata?.workshop_name || 'Mi Taller Mecánico',
+          ownerName: u.user_metadata?.owner_name || (u.email ? u.email.split('@')[0] : 'Titular'),
+          isOnline: true
+        });
+      }
+    });
+  }, []);
+
+  // Sincronización Automática con la Base de Datos Central (Supabase Multi-tenant)
+  useEffect(() => {
+    if (!userSession) return;
+
+    let isMounted = true;
+    const syncData = async () => {
+      setIsSyncingCloud(true);
+      try {
+        const { data: authData } = await supabase?.auth.getUser() || {};
+        const u = authData?.user || { id: userSession.userId || userSession.email, email: userSession.email };
+
+        const ws = await getOrCreateWorkshop(u, workshopInfo);
+        if (ws && isMounted) {
+          setCurrentWorkshop(ws);
+
+          // Si la base de datos está vacía y el usuario tenía autos locales (ej: Excel en localhost), migrarlos
+          await syncLocalDataIfDbEmpty(ws.id, vehicles, workshopInfo);
+
+          // Cargar datos reales desde la base de datos de Supabase para este taller
+          const cloudData = await loadWorkshopData(ws.id);
+          if (cloudData && isMounted) {
+            if (cloudData.workshop) {
+              setWorkshopInfo(prev => ({
+                ...prev,
+                name: cloudData.workshop.name || prev.name,
+                owner: cloudData.workshop.owner || prev.owner,
+                address: cloudData.workshop.address || prev.address,
+                phone: cloudData.workshop.phone || prev.phone,
+                email: cloudData.workshop.email || prev.email,
+                cuit: cloudData.workshop.cuit || prev.cuit,
+                logoUrl: cloudData.workshop.logo_url || prev.logoUrl,
+                taxRate: cloudData.workshop.tax_rate ?? prev.taxRate,
+                defaultLaborCost: cloudData.workshop.default_labor_cost ?? prev.defaultLaborCost
+              }));
+            }
+            if (cloudData.vehicles && cloudData.vehicles.length > 0) {
+              setVehicles(cloudData.vehicles);
+            }
+            if (cloudData.suppliers && cloudData.suppliers.length > 0) {
+              setSuppliers(cloudData.suppliers);
+            }
+            if (cloudData.checks && cloudData.checks.length > 0) {
+              setChecks(cloudData.checks);
+            }
+            if (cloudData.withdrawals && cloudData.withdrawals.length > 0) {
+              setWithdrawals(cloudData.withdrawals);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error sincronizando con Supabase:', err);
+      } finally {
+        if (isMounted) setIsSyncingCloud(false);
+      }
+    };
+
+    syncData();
+
+    return () => { isMounted = false; };
+  }, [userSession]);
+
   // Navegación de Vistas: 'vehicles' | 'drafts' | 'finances' | 'settings'
   const [currentView, setCurrentView] = useState('vehicles');
 
@@ -133,7 +228,7 @@ export default function App() {
   const [printVisit, setPrintVisit] = useState(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
-  const [isWhatsAppSimOpen, setIsWhatsAppSimOpen] = useState(false);
+  const [isAssistantModalOpen, setIsAssistantModalOpen] = useState(false);
   const [isNewVehicleModalOpen, setIsNewVehicleModalOpen] = useState(false);
   const [isAdminWhatsAppOpen, setIsAdminWhatsAppOpen] = useState(false);
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
@@ -144,9 +239,8 @@ export default function App() {
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
 
-  // Polling para traer borradores generados por WhatsApp real desde el servidor local
+  // Polling para traer borradores generados por WhatsApp real desde el backend
   useEffect(() => {
-    // Si la web está en Vercel (https) y el servidor WhatsApp está en local, no bloquear
     const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.') || window.location.hostname === '127.0.0.1';
     if (!isLocalEnv) return;
 
@@ -164,7 +258,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        // Backend no conectado o apagado, ignorar silenciosamente
+        // Backend apagado
       }
     };
 
@@ -204,8 +298,9 @@ export default function App() {
     setIsEditorOpen(true);
   };
 
-  // Guardar orden de trabajo (nueva o editada)
-  const handleSaveOrder = (vehicleId, orderData, draftId = null, isEditing = false) => {
+  // Guardar orden de trabajo (nueva o editada) y persistir a Supabase
+  const handleSaveOrder = async (vehicleId, orderData, draftId = null, isEditing = false) => {
+    // 1. Actualización de estado local reactiva
     setVehicles(prevVehicles => 
       prevVehicles.map(v => {
         if (v.id === vehicleId) {
@@ -225,7 +320,6 @@ export default function App() {
       })
     );
 
-    // Actualizar vehículo seleccionado si está abierto
     if (selectedVehicle && selectedVehicle.id === vehicleId) {
       setSelectedVehicle(prev => {
         let updatedHistory;
@@ -247,6 +341,11 @@ export default function App() {
         prevDrafts.map(d => d.id === draftId ? { ...d, status: 'applied' } : d)
       );
     }
+
+    // 2. Guardar en Base de Datos de Supabase en la nube
+    if (currentWorkshop?.id) {
+      await saveWorkOrderToDb(currentWorkshop.id, vehicleId, orderData);
+    }
   };
 
   // Descartar / eliminar borrador de WhatsApp
@@ -254,9 +353,7 @@ export default function App() {
     setDrafts(prev => prev.filter(d => d.id !== draftId));
     try {
       await fetch(`http://localhost:3001/api/whatsapp/drafts/${draftId}`, { method: 'DELETE' });
-    } catch (e) {
-      // Ignorar si offline
-    }
+    } catch (e) {}
   };
 
   // Imprimir comprobante
@@ -266,13 +363,19 @@ export default function App() {
     setIsPrintModalOpen(true);
   };
 
-  // Guardar nuevo vehículo
-  const handleSaveNewVehicle = (newVeh) => {
+  // Guardar nuevo vehículo y persistir en Supabase
+  const handleSaveNewVehicle = async (newVeh) => {
     setVehicles(prev => [newVeh, ...prev]);
+    if (currentWorkshop?.id) {
+      const savedDb = await saveVehicleToDb(currentWorkshop.id, newVeh);
+      if (savedDb) {
+        setVehicles(prev => prev.map(v => v.id === newVeh.id ? { ...v, id: savedDb.id } : v));
+      }
+    }
   };
 
-  // Importar lote de vehículos desde planillas Excel
-  const handleImportVehicles = (importedVehicles) => {
+  // Importar lote de vehículos desde planillas Excel y guardar en Supabase
+  const handleImportVehicles = async (importedVehicles) => {
     setVehicles(prevVehicles => {
       let current = [...prevVehicles];
       importedVehicles.forEach(newVeh => {
@@ -280,7 +383,6 @@ export default function App() {
         const existingIndex = current.findIndex(v => v.plate.replace(/\s+/g, '').toUpperCase() === cleanPlate);
         
         if (existingIndex >= 0) {
-          // Unir historial de visitas sin duplicar
           const existing = current[existingIndex];
           const mergedHistory = [...(newVeh.history || []), ...(existing.history || [])];
           current[existingIndex] = {
@@ -294,17 +396,47 @@ export default function App() {
       });
       return current;
     });
+
+    // Guardar masivamente en la base de datos central de Supabase
+    if (currentWorkshop?.id) {
+      await bulkImportToSupabase(currentWorkshop.id, importedVehicles);
+    }
   };
 
-  // Nuevo borrador de WhatsApp
+  // Nuevo borrador del asistente o WhatsApp
   const handleNewDraftCreated = (newDraft) => {
     setDrafts(prev => [newDraft, ...prev]);
+  };
+
+  // Guardar datos configurados del taller y sincronizar a la nube
+  const handleSaveWorkshopInfo = async (updatedInfo) => {
+    setWorkshopInfo(updatedInfo);
+    localStorage.setItem('workshop_info_profile', JSON.stringify(updatedInfo));
+    if (currentWorkshop?.id) {
+      await saveWorkshopInfoToDb(currentWorkshop.id, updatedInfo);
+    }
+  };
+
+  // Restaurar Copia de Seguridad desde Archivo JSON
+  const handleRestoreBackup = async (backupData) => {
+    if (backupData.vehicles) setVehicles(backupData.vehicles);
+    if (backupData.workshop) setWorkshopInfo(backupData.workshop);
+    if (backupData.suppliers) setSuppliers(backupData.suppliers);
+    if (backupData.clientAccounts) setClientAccounts(backupData.clientAccounts);
+    if (backupData.checks) setChecks(backupData.checks);
+    if (backupData.withdrawals) setWithdrawals(backupData.withdrawals);
+    if (backupData.cashBalance) setCashBalance(backupData.cashBalance);
+
+    if (currentWorkshop?.id && backupData.vehicles) {
+      await bulkImportToSupabase(currentWorkshop.id, backupData.vehicles);
+      if (backupData.workshop) await saveWorkshopInfoToDb(currentWorkshop.id, backupData.workshop);
+    }
+    alert('¡Copia de seguridad restaurada correctamente en este taller!');
   };
 
   // Procesar Pago / Cobranza Financiera
   const handleSavePayment = ({ type, entityId, amount, method, endorsedCheckId, notes }) => {
     if (type === 'client') {
-      // Cobro de cliente
       setClientAccounts(prev => prev.map(c => {
         if (c.id === entityId) {
           const newPaid = (c.totalPaid || 0) + amount;
@@ -319,7 +451,6 @@ export default function App() {
         return c;
       }));
 
-      // Si pagó con cheque, ingresar a cartera
       if (method.includes('Cheque')) {
         const clientObj = clientAccounts.find(c => c.id === entityId);
         setChecks(prev => [
@@ -343,23 +474,19 @@ export default function App() {
         setCashBalance(prev => ({ ...prev, bankBalance: prev.bankBalance + amount }));
       }
     } else {
-      // Pago a proveedor
       setSuppliers(prev => prev.map(s => {
         if (s.id === entityId) {
           const newDue = Math.max(0, (s.balanceDue || 0) - amount);
           return {
             ...s,
             balanceDue: newDue,
-            history: [{ id: `mov-${Date.now()}`, date: new Date().toISOString().split('T')[0], type: 'payment', description: `${method}: ${notes}`, amount: -amount, balanceAfter: newDue }, ...(s.history || [])]
+            payments: [{ id: `sp-${Date.now()}`, date: new Date().toISOString().split('T')[0], method, amount, note: notes }, ...(s.payments || [])]
           };
         }
         return s;
       }));
 
-      // Si endosó cheque, actualizar estado del cheque
-      if (endorsedCheckId) {
-        setChecks(prev => prev.map(chk => chk.id === endorsedCheckId ? { ...chk, type: 'endorsed', status: 'Endosado y entregado a proveedor' } : chk));
-      } else if (method === 'Efectivo') {
+      if (method === 'Efectivo') {
         setCashBalance(prev => ({ ...prev, cashOnHand: Math.max(0, prev.cashOnHand - amount) }));
       } else {
         setCashBalance(prev => ({ ...prev, bankBalance: Math.max(0, prev.bankBalance - amount) }));
@@ -367,22 +494,19 @@ export default function App() {
     }
   };
 
-  // Guardar Retiro del Dueño
-  const handleSaveWithdrawal = (withdrawal) => {
-    setWithdrawals(prev => [withdrawal, ...prev]);
-    if (withdrawal.method === 'Efectivo') {
-      setCashBalance(prev => ({ ...prev, cashOnHand: Math.max(0, prev.cashOnHand - withdrawal.amount) }));
+  const handleSaveWithdrawal = (withdrawalData) => {
+    setWithdrawals(prev => [withdrawalData, ...prev]);
+    if (withdrawalData.method === 'Efectivo') {
+      setCashBalance(prev => ({ ...prev, cashOnHand: Math.max(0, prev.cashOnHand - withdrawalData.amount) }));
     } else {
-      setCashBalance(prev => ({ ...prev, bankBalance: Math.max(0, prev.bankBalance - withdrawal.amount) }));
+      setCashBalance(prev => ({ ...prev, bankBalance: Math.max(0, prev.bankBalance - withdrawalData.amount) }));
     }
   };
 
-  // Guardar Cheque Manual
   const handleSaveCheck = (checkData) => {
     setChecks(prev => [checkData, ...prev]);
   };
 
-  // Guardar Nuevo Proveedor
   const handleSaveSupplier = (supplierData) => {
     setSuppliers(prev => [supplierData, ...prev]);
   };
@@ -392,7 +516,6 @@ export default function App() {
     setUserSession(sessionData);
     localStorage.setItem('workshop_user_session', JSON.stringify(sessionData));
 
-    // Si viene con datos del taller, actualizar workshopInfo
     if (sessionData.workshopName) {
       setWorkshopInfo(prev => {
         const updated = {
@@ -408,21 +531,17 @@ export default function App() {
     }
   };
 
-  // Manejador de Cierre de Sesión
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (supabase) {
+      try { await supabase.auth.signOut(); } catch (e) {}
+    }
     setUserSession(null);
+    setCurrentWorkshop(null);
     localStorage.removeItem('workshop_user_session');
-  };
-
-  // Guardar datos configurados del taller
-  const handleSaveWorkshopInfo = (updatedInfo) => {
-    setWorkshopInfo(updatedInfo);
-    localStorage.setItem('workshop_info_profile', JSON.stringify(updatedInfo));
   };
 
   const pendingDraftsCount = drafts.filter(d => d.status === 'pending').length;
 
-  // Si no hay sesión iniciada, mostrar pantalla de Login / Registro
   if (!userSession) {
     return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
   }
@@ -430,50 +549,50 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#f1f5f9] text-slate-900 flex flex-col font-sans">
       
-      {/* Header superior con ALTO CONTRASTE y relieve */}
+      {/* Header superior: Diseño Adaptativo para PC y Celulares */}
       <header className="bg-white border-b-2 border-slate-300 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center gap-3">
           
           {/* Logo del taller dinámico */}
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
             {workshopInfo.logoUrl ? (
               <img 
                 src={workshopInfo.logoUrl} 
-                alt="Logo del Taller" 
-                className="h-10 w-auto max-w-[120px] object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-sm" 
+                alt="Logo" 
+                className="h-8 sm:h-10 w-auto max-w-[90px] sm:max-w-[120px] object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-sm shrink-0" 
               />
             ) : (
-              <div className="bg-slate-900 text-amber-400 p-2 rounded-xl shadow-sm flex items-center justify-center font-black text-sm tracking-wider">
-                <Wrench className="w-5 h-5 text-amber-400" />
+              <div className="bg-slate-900 text-amber-400 p-1.5 sm:p-2 rounded-xl shadow-sm flex items-center justify-center font-black text-xs sm:text-sm tracking-wider shrink-0">
+                <Wrench className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
               </div>
             )}
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-black text-slate-950 text-base tracking-tight">
-                  {workshopInfo.name || "Mi Taller Mecánico"}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 truncate">
+                <h1 className="font-black text-slate-950 text-xs sm:text-base tracking-tight truncate">
+                  {workshopInfo.name || "Mi Taller"}
                 </h1>
                 {workshopInfo.owner && (
-                  <>
-                    <span className="text-slate-400 font-bold">/</span>
-                    <span className="text-xs text-slate-800 font-black bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                      de {workshopInfo.owner}
-                    </span>
-                  </>
+                  <span className="text-[10px] sm:text-xs text-slate-800 font-bold bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 shrink-0">
+                    {workshopInfo.owner}
+                  </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-3 mt-0.5">
-                {workshopInfo.address && (
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-500" /> {workshopInfo.address}</span>
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-500 font-medium">
+                {isSyncingCloud ? (
+                  <span className="flex items-center gap-1 text-blue-600 font-bold animate-pulse">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Sincronizando con la nube...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-emerald-700 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Base de Datos Conectada
+                  </span>
                 )}
-                {workshopInfo.phone && (
-                  <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-500" /> {workshopInfo.phone}</span>
-                )}
-              </p>
+              </div>
             </div>
           </div>
 
-          {/* Navegación Principal con EFECTO TACTIL / BOTONES EN RELIEVE */}
-          <div className="flex items-center gap-2 bg-slate-200/80 p-1.5 rounded-2xl border border-slate-300 shadow-inner">
+          {/* Navegación Desktop (Visible sólo en pantallas medianas y grandes) */}
+          <div className="hidden md:flex items-center gap-2 bg-slate-200/80 p-1.5 rounded-2xl border border-slate-300 shadow-inner">
             <button
               onClick={() => setCurrentView('vehicles')}
               className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all ${
@@ -483,7 +602,7 @@ export default function App() {
               }`}
             >
               <Car className="w-4 h-4 text-amber-500" />
-              <span>Vehículos & Flotas</span>
+              <span>Vehículos</span>
               <span className="text-[10px] bg-slate-100 text-slate-800 border border-slate-300 px-2 py-0.2 rounded-full font-mono font-black">
                 {vehicles.length}
               </span>
@@ -498,7 +617,7 @@ export default function App() {
               }`}
             >
               <Inbox className="w-4 h-4 text-emerald-600" />
-              <span>Borradores WhatsApp</span>
+              <span>Borradores</span>
               {pendingDraftsCount > 0 && (
                 <span className="bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full shadow-xs">
                   {pendingDraftsCount}
@@ -515,7 +634,7 @@ export default function App() {
               }`}
             >
               <DollarSign className="w-4 h-4 text-blue-600" />
-              <span>Control & Cuentas</span>
+              <span>Cuentas</span>
             </button>
 
             <button
@@ -531,31 +650,33 @@ export default function App() {
             </button>
           </div>
 
-          {/* Botones de WhatsApp y Administración */}
-          <div className="flex items-center gap-2">
+          {/* Botones de Acción Rápidos */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setIsAdminWhatsAppOpen(true)}
-              className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5 border border-slate-700"
-              title="Vincular WhatsApp / Estado de conexión (Área Protegida por Contraseña)"
+              className="p-2 sm:px-3 sm:py-2 bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-sm border border-slate-700 shrink-0"
+              title="Vincular WhatsApp / Estado de conexión"
             >
-              <span>🔐 WhatsApp (Admin)</span>
+              <span>🔐</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </button>
 
             <button
-              onClick={() => setIsWhatsAppSimOpen(true)}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5"
-              title="Dictar o cargar notas mecánicas con el micrófono o texto"
+              onClick={() => setIsAssistantModalOpen(true)}
+              className="px-2.5 py-2 sm:px-3.5 sm:py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5 shrink-0"
+              title="Dictar o cargar notas mecánicas por voz"
             >
               <Mic className="w-4 h-4 text-amber-300" />
-              <span>🎙️ Asistente de Carga</span>
+              <span className="hidden sm:inline">🎙️ Asistente de Carga</span>
+              <span className="sm:hidden font-bold">Dictar</span>
             </button>
           </div>
 
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full space-y-6">
+      {/* Main Content Area con padding inferior adicional en celulares para la barra fija */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full space-y-5 pb-24 md:pb-6">
         
         {/* Renderizado de Vistas */}
         {currentView === 'vehicles' && (
@@ -572,7 +693,7 @@ export default function App() {
           <BotDraftsView
             drafts={drafts}
             onOpenEditorWithDraft={handleOpenEditorWithDraft}
-            onOpenWhatsAppSimulator={() => setIsWhatsAppSimOpen(true)}
+            onOpenWhatsAppSimulator={() => setIsAssistantModalOpen(true)}
             onDiscardDraft={handleDiscardDraft}
           />
         )}
@@ -598,13 +719,74 @@ export default function App() {
             onSaveWorkshopInfo={handleSaveWorkshopInfo}
             userSession={userSession}
             onLogout={handleLogout}
+            vehicles={vehicles}
+            suppliers={suppliers}
+            clientAccounts={clientAccounts}
+            checks={checks}
+            withdrawals={withdrawals}
+            cashBalance={cashBalance}
+            onRestoreBackup={handleRestoreBackup}
+            currentWorkshop={currentWorkshop}
           />
         )}
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t-2 border-slate-300 bg-white py-4 text-center text-xs text-slate-500 font-bold">
+      {/* Barra de Navegación Móvil Fija al Pie (Estilo App Nativa para Google Pixel y Smartphones) */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t-2 border-slate-300 shadow-[0_-4px_25px_rgba(0,0,0,0.12)] py-2 px-2 flex justify-around items-center">
+        <button
+          onClick={() => setCurrentView('vehicles')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition text-[11px] font-black relative ${
+            currentView === 'vehicles' ? 'text-amber-600 scale-105' : 'text-slate-500'
+          }`}
+        >
+          <Car className="w-5 h-5" />
+          <span>Vehículos</span>
+          {vehicles.length > 0 && (
+            <span className="absolute -top-1 right-2 bg-slate-100 text-slate-800 border border-slate-300 text-[9px] font-bold px-1 rounded-full">
+              {vehicles.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setCurrentView('drafts')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition text-[11px] font-black relative ${
+            currentView === 'drafts' ? 'text-emerald-600 scale-105' : 'text-slate-500'
+          }`}
+        >
+          <Inbox className="w-5 h-5" />
+          <span>Borradores</span>
+          {pendingDraftsCount > 0 && (
+            <span className="absolute -top-1 right-2 bg-emerald-600 text-white text-[9px] font-bold px-1.5 rounded-full animate-pulse shadow-xs">
+              {pendingDraftsCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setCurrentView('finances')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition text-[11px] font-black ${
+            currentView === 'finances' ? 'text-blue-600 scale-105' : 'text-slate-500'
+          }`}
+        >
+          <DollarSign className="w-5 h-5" />
+          <span>Cuentas</span>
+        </button>
+
+        <button
+          onClick={() => setCurrentView('settings')}
+          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition text-[11px] font-black ${
+            currentView === 'settings' ? 'text-slate-900 scale-105' : 'text-slate-500'
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          <span>Ajustes</span>
+        </button>
+      </nav>
+
+      {/* Footer Desktop */}
+      <footer className="hidden md:block border-t-2 border-slate-300 bg-white py-4 text-center text-xs text-slate-500 font-bold">
         Sistema de Control Integral para Taller Mecánico • {workshopInfo.name || 'Mi Taller'} {workshopInfo.owner ? `de ${workshopInfo.owner}` : ''}
       </footer>
 
@@ -640,8 +822,8 @@ export default function App() {
       />
 
       <MechanicAssistantModal
-        isOpen={isWhatsAppSimOpen}
-        onClose={() => setIsWhatsAppSimOpen(false)}
+        isOpen={isAssistantModalOpen}
+        onClose={() => setIsAssistantModalOpen(false)}
         existingVehicles={vehicles}
         onNewDraftCreated={handleNewDraftCreated}
         onOpenOrderDirectly={handleOpenEditorWithDraft}

@@ -33,6 +33,7 @@ export default function AuthScreen({ onLoginSuccess }) {
           if (supaErr) throw supaErr;
           
           onLoginSuccess({
+            userId: data.user?.id,
             email: email,
             workshopName: workshopName || 'Mi Taller Mecánico',
             ownerName: ownerName || 'Titular',
@@ -47,6 +48,7 @@ export default function AuthScreen({ onLoginSuccess }) {
           if (supaErr) throw supaErr;
 
           onLoginSuccess({
+            userId: data.user?.id,
             email: email,
             workshopName: data.user?.user_metadata?.workshop_name || 'Mi Taller Mecánico',
             ownerName: data.user?.user_metadata?.owner_name || (email ? email.split('@')[0] : 'Titular'),

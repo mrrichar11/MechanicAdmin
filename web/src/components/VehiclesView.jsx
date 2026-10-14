@@ -33,12 +33,12 @@ export default function VehiclesView({ vehicles, onSelectVehicle, onOpenNewOrder
           />
         </div>
 
-        {/* Filtros por tipo de cliente */}
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-100 p-1.5 rounded-xl border border-slate-300 flex items-center text-xs shadow-inner">
+        {/* Filtros por tipo de cliente y botones de acción */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div className="grid grid-cols-3 sm:flex bg-slate-100 p-1 rounded-xl border border-slate-300 text-xs shadow-inner">
             <button
               onClick={() => setFilterType('all')}
-              className={`px-3.5 py-1.5 rounded-lg transition font-bold ${
+              className={`px-3 py-1.5 rounded-lg transition font-bold text-center ${
                 filterType === 'all' ? 'bg-white text-slate-950 shadow-md' : 'text-slate-600 hover:text-slate-950'
               }`}
             >
@@ -46,43 +46,47 @@ export default function VehiclesView({ vehicles, onSelectVehicle, onOpenNewOrder
             </button>
             <button
               onClick={() => setFilterType('fleet')}
-              className={`px-3.5 py-1.5 rounded-lg transition font-bold flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition font-bold flex items-center justify-center gap-1 ${
                 filterType === 'fleet' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950'
               }`}
             >
-              <Building2 className="w-3.5 h-3.5" /> Flotas
+              <Building2 className="w-3.5 h-3.5 shrink-0" /> Flotas
             </button>
             <button
               onClick={() => setFilterType('particular')}
-              className={`px-3.5 py-1.5 rounded-lg transition font-bold flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg transition font-bold flex items-center justify-center gap-1 ${
                 filterType === 'particular' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-950'
               }`}
             >
-              <User className="w-3.5 h-3.5" /> Particulares
+              <User className="w-3.5 h-3.5 shrink-0" /> Particulares
             </button>
           </div>
 
-          <button
-            onClick={onOpenExcelImport}
-            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5 shrink-0"
-            title="Importar planillas Excel históricas del taller"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-200" /> Importar Excels
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenExcelImport}
+              className="flex-1 sm:flex-none px-3.5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl flex items-center justify-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5 shrink-0"
+              title="Importar planillas Excel históricas del taller"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-200" /> 
+              <span>Importar Excels</span>
+            </button>
 
-          <button
-            onClick={onAddNewVehicle}
-            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl flex items-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5 shrink-0"
-          >
-            <Plus className="w-4 h-4 text-amber-400" /> Nuevo Vehículo
-          </button>
+            <button
+              onClick={onAddNewVehicle}
+              className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl flex items-center justify-center gap-1.5 transition shadow-md hover:shadow-lg hover:-translate-y-0.5 shrink-0"
+            >
+              <Plus className="w-4 h-4 text-amber-400" /> 
+              <span>Nuevo Vehículo</span>
+            </button>
+          </div>
         </div>
 
       </div>
 
       {/* Grid de Vehículos con Tarjetas Tactile / Relieve o Estado Vacío */}
       {filteredVehicles.length === 0 ? (
-        <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-12 text-center shadow-xs flex flex-col items-center justify-center">
+        <div className="bg-white border-2 border-dashed border-slate-300 rounded-3xl p-6 sm:p-12 text-center shadow-xs flex flex-col items-center justify-center">
           <div className="w-16 h-16 bg-amber-100 border border-amber-300 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
             <FileSpreadsheet className="w-8 h-8 text-amber-700" />
           </div>
@@ -92,17 +96,17 @@ export default function VehiclesView({ vehicles, onSelectVehicle, onOpenNewOrder
           <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
             Comienza importando tus planillas Excel históricas del taller o añade un vehículo manualmente.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md">
             <button
               onClick={onOpenExcelImport}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-md hover:shadow-lg transition"
+              className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition"
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Importar Planillas Excel (.xlsx)</span>
             </button>
             <button
               onClick={onAddNewVehicle}
-              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black flex items-center gap-2 shadow-md hover:shadow-lg transition"
+              className="w-full sm:w-auto px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition"
             >
               <Plus className="w-4 h-4 text-amber-400" />
               <span>Cargar Vehículo Manual</span>
