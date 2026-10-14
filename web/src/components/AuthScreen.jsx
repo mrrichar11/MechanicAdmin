@@ -54,19 +54,23 @@ export default function AuthScreen({ onLoginSuccess }) {
           });
         }
       } else {
-        // Modo local / demostración inmediata
-        setTimeout(() => {
-          onLoginSuccess({
-            email: email || 'ivanluque334@gmail.com',
-            workshopName: isRegistering ? (workshopName || 'Nuevo Taller') : 'Bosch Car Service',
-            ownerName: isRegistering ? (ownerName || 'Dueño') : 'Iván Luque',
-            phone: phone || '03493-423274',
-            isOnline: false
-          });
-        }, 500);
+        // Si Supabase no está configurado o sus credenciales son inválidas
+        onLoginSuccess({
+          email: email,
+          workshopName: isRegistering ? (workshopName || 'Mi Taller Mecánico') : 'Bosch Car Service',
+          ownerName: isRegistering ? (ownerName || 'Titular') : 'Iván Luque',
+          phone: phone || '',
+          isOnline: false
+        });
       }
     } catch (err) {
-      setError(err.message || 'Error al iniciar sesión');
+      console.error('Error Auth:', err);
+      // Si la URL guardada en localStorage era inválida y causa error de red
+      if (err.message?.includes('Invalid path') || err.message?.includes('Failed to fetch')) {
+        setError(`Error de conexión con Supabase (${err.message}). Si pegaste la URL con un path extra o espacios, límpiala en Configuración o borra la caché.`);
+      } else {
+        setError(err.message || 'Error al iniciar sesión');
+      }
     } finally {
       setLoading(false);
     }
