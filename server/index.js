@@ -22,66 +22,107 @@ let isConnected = false;
 let connectedUser = null;
 let incomingDrafts = [];
 
-// Parser básico para extraer datos del mensaje de WhatsApp
-function parseMechanicalMessage(text, sender) {
-  let detectedPlate = "AF 018 OO";
-  const plateMatch = text.match(/([A-Z]{2}\s*\d{3}\s*[A-Z]{2}|[A-Z]{3}\s*\d{3})/i);
-  if (plateMatch) {
-    detectedPlate = plateMatch[1].toUpperCase().replace(/\s+/g, ' ');
+// Contexto de último auto trabajado para cuando el mecánico dice "al mismo auto" o "al auto anterior"
+let lastActivePlate = null;
+
+// Normalizador de patentes argentinas (Mercosur AA 123 BB o Vieja AAA 123)
+function extractPlate(text) {
+  // Patente Mercosur: 2 letras, 3 números, 2 letras (ej: AF 018 OO, AF018OO)
+  const mercosurMatch = text.match(/\b([A-Za-z]{2})\s*(\d{3})\s*([A-Za-z]{2})\b/i);
+  if (mercosurMatch) {
+    return `${mercosurMatch[1].toUpperCase()} ${mercosurMatch[2]} ${mercosurMatch[3].toUpperCase()}`;
   }
 
-  // KM
-  let km = 104712;
-  const kmMatch = text.match(/(\d{2,3}[\.,]?\d{3})\s*(km)?/i);
+  // Patente formato anterior: 3 letras, 3 números (ej: NTO 302, ABC 123)
+  // Excluimos palabras comunes de 3 letras que tengan números pegados que no sean patentes
+  const legacyMatch = text.match(/\b([A-Za-z]{3})\s*(\d{3})\b/i);
+  if (legacyMatch) {
+    const letters = legacyMatch[1].toUpperCase();
+    // Descartar falsos positivos comunes
+    if (!['DEL', 'POR', 'QUE', 'LOS', 'LAS', 'CON', 'SIN', 'ROD'].includes(letters)) {
+      return `${letters} ${legacyMatch[2]}`;
+    }
+  }
+
+  return null;
+}
+
+// Parser inteligente para extraer datos mecánicos
+function parseMechanicalMessage(text, sender) {
+  const lower = text.toLowerCase();
+
+  // 1. Detección de Patente
+  let detectedPlate = extractPlate(text);
+
+  // Si dice "al mismo auto", "mismo auto", "al anterior" y tenemos un auto previo
+  if (!detectedPlate && (lower.includes("mismo auto") || lower.includes("al mismo") || lower.includes("mismo vehiculo"))) {
+    detectedPlate = lastActivePlate || "AF 018 OO";
+  }
+
+  // Si se detectó patente, guardarla como la última activa
+  if (detectedPlate) {
+    lastActivePlate = detectedPlate;
+  }
+
+  // Si no hay patente en el texto y no hay activa, no inventar o usar fallback claro
+  if (!detectedPlate) {
+    detectedPlate = lastActivePlate || "Sin Patente";
+  }
+
+  // 2. Kilometraje (ej: 104500 km, 104.500km, 148200)
+  let km = null;
+  const kmMatch = text.match(/(\d{2,3}[\.,]?\d{3})\s*(km|kms|kilometros)?/i);
   if (kmMatch) {
     km = parseInt(kmMatch[1].replace(/[\.,]/g, ''), 10);
   }
 
-  // Tareas y repuestos
+  // 3. Extracción de Tareas y Repuestos
   const tasks = [];
   const parts = [];
-  const lower = text.toLowerCase();
 
+  // Diccionario mecánico inteligente
   if (lower.includes("polea")) {
-    tasks.push("Sustitución de polea de cigüeñal y poleas de inversión.");
-    parts.push({ description: "Polea de cigüeñal", brand: "Original", unitPrice: 257064, qty: 1 });
+    tasks.push("Revisión y reemplazo de poleas.");
+    parts.push({ description: "Polea de cigüeñal / inversión", brand: "Original", unitPrice: 175000, qty: 1 });
   }
   if (lower.includes("tensor")) {
-    tasks.push("Reemplazo de tensor móvil de correa de accesorios.");
-    parts.push({ description: "Tensor de correa", brand: "Original", unitPrice: 411706.75, qty: 1 });
+    tasks.push("Reemplazo de tensor de correa.");
+    parts.push({ description: "Tensor de correa", brand: "Original", unitPrice: 220000, qty: 1 });
   }
-  if (lower.includes("refrigerante") || lower.includes("motul")) {
-    tasks.push("Carga y purgado de líquido refrigerante de motor.");
+  if (lower.includes("refrigerante") || lower.includes("motul") || lower.includes("liquido")) {
+    tasks.push("Carga y purgado de líquido refrigerante.");
     parts.push({ description: "Refrigerante motor Coolant", brand: "Motul", unitPrice: 79655, qty: 1 });
   }
   if (lower.includes("aceite") || lower.includes("filtro") || lower.includes("service")) {
-    tasks.push("Service de cambio de aceite y filtros de motor.");
-    parts.push({ description: "Aceite sintético 5W40", brand: "Motul", unitPrice: 125000, qty: 1 });
+    tasks.push("Service de cambio de aceite y filtros.");
+    parts.push({ description: "Aceite de motor", brand: "Sintético", unitPrice: 125000, qty: 1 });
     parts.push({ description: "Filtro de aceite", brand: "Bosch", unitPrice: 32000, qty: 1 });
   }
-  if (lower.includes("freno") || lower.includes("pastilla")) {
-    tasks.push("Reemplazo de pastillas de freno e inspección de discos.");
-    parts.push({ description: "Pastillas de freno", brand: "Bosch", unitPrice: 98000, qty: 1 });
+  if (lower.includes("freno") || lower.includes("pastilla") || lower.includes("disco")) {
+    tasks.push("Revisión sistema de frenos.");
+    parts.push({ description: "Juego de pastillas de freno", brand: "Bosch", unitPrice: 98000, qty: 1 });
+  }
+  if (lower.includes("rodamiento") || lower.includes("ruleman")) {
+    tasks.push("Extracción y cambio de rodamiento / rulemán.");
+    parts.push({ description: "Rodamiento de rueda", brand: "SKF / Timken", unitPrice: 85000, qty: 1 });
+  }
+  if (lower.includes("escan") || lower.includes("diagnostico") || lower.includes("error")) {
+    tasks.push("Diagnóstico computarizado y escaneo con scanner Bosch.");
+  }
+  if (lower.includes("paragolpe") || lower.includes("rueda") || lower.includes("desarmar")) {
+    tasks.push("Desmontaje de elementos para inspección en elevador.");
   }
 
+  // Si no se clasificó por palabra clave específica, poner el texto como tarea
   if (tasks.length === 0) {
-    tasks.push(text);
+    tasks.push(text.trim());
   }
 
   return {
-    id: `draft-wa-${Date.now()}`,
-    sender: sender || "WhatsApp del Taller",
-    timestamp: "Recién (WhatsApp)",
-    sourceType: "text",
-    rawContent: text,
-    detectedPlate: detectedPlate,
-    vehicleModel: `Vehículo ${detectedPlate}`,
-    status: "pending",
-    parsedData: {
-      km,
-      tasks,
-      parts
-    }
+    detectedPlate,
+    km,
+    tasks,
+    parts
   };
 }
 
@@ -94,7 +135,7 @@ async function startWhatsApp() {
     version,
     auth: state,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: true,
+    printQRInTerminal: false,
   });
 
   sock.ev.on('creds.update', saveCreds);
@@ -119,7 +160,6 @@ async function startWhatsApp() {
       if (shouldReconnect) {
         startWhatsApp();
       } else {
-        // Borrar credenciales si se deslogueó
         if (fs.existsSync(authFolder)) {
           fs.rmSync(authFolder, { recursive: true, force: true });
         }
@@ -138,26 +178,86 @@ async function startWhatsApp() {
     for (const msg of messages) {
       if (!msg.message) continue;
 
-      const senderJid = msg.key.remoteJid;
-      const isFromMe = msg.key.fromMe;
+      const remoteJid = msg.key.remoteJid || '';
+      
+      // 1. REGLA ESTRICTA DE PRIVACIDAD: IGNORAR GRUPOS POR COMPLETO
+      // Los grupos en WhatsApp siempre terminan con @g.us
+      if (remoteJid.endsWith('@g.us')) {
+        console.log(`🔒 [Privacidad] Mensaje de grupo ignorado: ${remoteJid}`);
+        continue;
+      }
+
+      // 2. REGLA DE CHATS PERSONALES:
+      // Solo procesar si el mensaje es de uno mismo (Mensajes a ti mismo / fromMe: true)
+      // O si en chats directos contiene palabras o patentes explícitas de mecánica.
+      const isFromMe = Boolean(msg.key.fromMe);
       const text = msg.message.conversation || 
                    msg.message.extendedTextMessage?.text || 
                    msg.message.imageMessage?.caption || '';
 
-      console.log(`📩 Mensaje recibido de ${senderJid} (fromMe: ${isFromMe}):`, text);
+      if (!text || text.trim().length < 4) continue;
 
-      if (text && text.trim().length > 3) {
-        const draft = parseMechanicalMessage(text, msg.pushName || senderJid);
-        incomingDrafts.unshift(draft);
+      const lowerText = text.toLowerCase();
+      const hasPlate = Boolean(extractPlate(text));
+      const hasAutomotiveKeywords = ['patente', 'auto', 'aceite', 'filtro', 'polea', 'tensor', 'km', 'freno', 'rueda', 'rodamiento', 'ruleman', 'scanner', 'escaneo', 'refrigerante', 'service', 'taller'].some(k => lowerText.includes(k));
 
-        // Responder confirmación por WhatsApp
-        try {
-          await sock.sendMessage(senderJid, {
-            text: `🚗 *Taller Luque - Sistema:* ¡Mensaje recibido y procesado!\n\n📋 *Patente:* ${draft.detectedPlate}\n🔧 *Tareas detectadas:* ${draft.parsedData.tasks.length}\n📦 *Repuestos:* ${draft.parsedData.parts.length}\n\nYa generé el borrador en tu panel para aprobarlo cuando quieras.`
-          });
-        } catch (e) {
-          console.error('Error respondiendo en WhatsApp:', e);
-        }
+      // Si no es un mensaje a ti mismo Y no tiene nada automotriz, ignorar (es chat privado con amigos/familia)
+      if (!isFromMe && !hasPlate && !hasAutomotiveKeywords) {
+        console.log(`🔒 [Privacidad] Chat privado ignorado (sin contenido automotriz): ${remoteJid}`);
+        continue;
+      }
+
+      console.log(`📩 [Taller] Mensaje automotriz procesado de ${remoteJid}:`, text);
+
+      const parsed = parseMechanicalMessage(text, msg.pushName || remoteJid);
+
+      // 3. JUNTAR O ACTUALIZAR BORRADOR EXISTENTE DE LA MISMA PATENTE (si llegó hace menos de 30 min)
+      const existingDraftIndex = incomingDrafts.findIndex(
+        d => d.detectedPlate === parsed.detectedPlate && d.status === 'pending'
+      );
+
+      if (existingDraftIndex >= 0) {
+        // Agrupar en la misma orden para no duplicar borradores
+        const existing = incomingDrafts[existingDraftIndex];
+        const mergedTasks = [...new Set([...existing.parsedData.tasks, ...parsed.tasks])];
+        const mergedParts = [...existing.parsedData.parts, ...parsed.parts];
+        
+        incomingDrafts[existingDraftIndex] = {
+          ...existing,
+          timestamp: 'Recién (actualizado)',
+          rawContent: `${existing.rawContent}\n+ ${text}`,
+          parsedData: {
+            km: parsed.km || existing.parsedData.km,
+            tasks: mergedTasks,
+            parts: mergedParts
+          }
+        };
+      } else {
+        // Nuevo borrador para esta patente
+        incomingDrafts.unshift({
+          id: `draft-wa-${Date.now()}`,
+          sender: msg.pushName || (isFromMe ? 'Tú (Notas de Taller)' : remoteJid.replace('@s.whatsapp.net', '')),
+          timestamp: 'Recién (WhatsApp)',
+          sourceType: 'text',
+          rawContent: text,
+          detectedPlate: parsed.detectedPlate,
+          vehicleModel: `Vehículo ${parsed.detectedPlate}`,
+          status: 'pending',
+          parsedData: {
+            km: parsed.km || 104712,
+            tasks: parsed.tasks,
+            parts: parsed.parts
+          }
+        });
+      }
+
+      // Responder confirmación por WhatsApp sólo si no es mensaje a uno mismo o si es nota personal
+      try {
+        await sock.sendMessage(remoteJid, {
+          text: `🚗 *Taller Luque - Sistema:* ¡Mensaje procesado para *${parsed.detectedPlate}*!\n\n🔧 *Tareas detectadas:* ${parsed.tasks.length}\n📦 *Repuestos:* ${parsed.parts.length}\n\n${existingDraftIndex >= 0 ? '🔄 _Se agregaron los nuevos trabajos a la orden abierta de esta patente._' : '📋 _Se generó una nueva orden en tu panel para aprobarla._'}`
+        });
+      } catch (e) {
+        console.error('Error respondiendo en WhatsApp:', e);
       }
     }
   });
