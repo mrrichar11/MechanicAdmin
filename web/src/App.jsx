@@ -94,6 +94,31 @@ export default function App() {
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
 
+  // Polling para traer borradores generados por WhatsApp real desde el servidor
+  useEffect(() => {
+    const fetchIncomingDrafts = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/whatsapp/drafts');
+        if (res.ok) {
+          const incoming = await res.json();
+          if (incoming && incoming.length > 0) {
+            setDrafts(prev => {
+              const existingIds = new Set(prev.map(d => d.id));
+              const newDrafts = incoming.filter(d => !existingIds.has(d.id));
+              return newDrafts.length > 0 ? [...newDrafts, ...prev] : prev;
+            });
+          }
+        }
+      } catch (err) {
+        // Backend no conectado o apagado, no molestar con error
+      }
+    };
+
+    fetchIncomingDrafts();
+    const interval = setInterval(fetchIncomingDrafts, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Seleccionar vehículo para ver historial
   const handleSelectVehicle = (veh) => {
     setSelectedVehicle(veh);
