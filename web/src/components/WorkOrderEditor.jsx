@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, X, Sparkles, Wrench, Package, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Save, X, Sparkles, Wrench, Package, Edit3, Clock, CheckCircle2 } from 'lucide-react';
 
 export default function WorkOrderEditor({ isOpen, onClose, vehicle, onSaveOrder, initialDraft = null, editingVisit = null }) {
   if (!isOpen || !vehicle) return null;
@@ -87,12 +87,12 @@ export default function WorkOrderEditor({ isOpen, onClose, vehicle, onSaveOrder,
   const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax;
 
-  const handleSave = () => {
+  const handleSave = (orderStatus = "Completado") => {
     const orderData = {
       id: editingVisit?.id || `vis-${Date.now()}`,
       date: date,
       km: parseInt(km) || vehicle.currentKm,
-      status: "Completado",
+      status: orderStatus, // "En Curso" (Abierta / En taller) o "Completado" (Cerrada / Finalizada)
       invoiceNumber: editingVisit?.invoiceNumber || `OT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       tasks: tasks,
       parts: parts,
@@ -386,21 +386,34 @@ export default function WorkOrderEditor({ isOpen, onClose, vehicle, onSaveOrder,
 
         </div>
 
-        {/* Footer actions */}
-        <div className="bg-white px-6 py-4 border-t border-slate-300 flex justify-end items-center gap-3">
+        {/* Footer actions con dos opciones de guardado */}
+        <div className="bg-white px-6 py-4 border-t border-slate-300 flex flex-wrap justify-between items-center gap-3">
           <button
             onClick={onClose}
             className="px-4 py-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-bold transition"
           >
             Cancelar
           </button>
-          <button
-            onClick={handleSave}
-            className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition hover:-translate-y-0.5"
-          >
-            <Save className="w-4 h-4 text-amber-400" />
-            <span>{isEditing ? 'Guardar Correcciones en la Ficha' : 'Guardar Visita en Historial'}</span>
-          </button>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => handleSave("En Curso")}
+              className="px-4 py-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition shadow-sm hover:shadow"
+              title="Guarda la hoja como 'En taller / Abierta' para seguir agregándole repuestos o notas más tarde"
+            >
+              <Clock className="w-4 h-4 text-amber-700" />
+              <span>Dejar Hoja Abierta (En Curso)</span>
+            </button>
+
+            <button
+              onClick={() => handleSave("Completado")}
+              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center gap-2 shadow-md hover:shadow-lg transition hover:-translate-y-0.5"
+              title="Cierra definitivamente la orden de trabajo como completada"
+            >
+              <Save className="w-4 h-4 text-amber-400" />
+              <span>{isEditing ? 'Guardar Cambios Definitivos' : 'Finalizar y Cerrar Visita'}</span>
+            </button>
+          </div>
         </div>
 
       </div>

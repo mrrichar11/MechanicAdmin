@@ -107,6 +107,15 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle, onOpenNew
             >
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
               <span>{v.date} — {v.km?.toLocaleString()} km</span>
+              {v.status === 'En Curso' ? (
+                <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] px-1.5 py-0.2 rounded font-black">
+                  En taller
+                </span>
+              ) : (
+                <span className="text-[10px] text-emerald-700 font-bold">
+                  ✓
+                </span>
+              )}
             </button>
           ))}
           {visits.length === 0 && (
@@ -129,6 +138,14 @@ export default function VehicleDetailModal({ isOpen, onClose, vehicle, onOpenNew
                   <span className="mx-2 text-slate-300">•</span>
                   <span className="text-slate-500 font-bold">Kilometraje: </span>
                   <span className="font-mono font-black text-slate-950 text-sm">{currentVisit.km?.toLocaleString()} km</span>
+                  <span className="mx-2 text-slate-300">•</span>
+                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                    currentVisit.status === 'En Curso' 
+                      ? 'bg-amber-100 text-amber-950 border border-amber-300' 
+                      : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                  }`}>
+                    {currentVisit.status === 'En Curso' ? '⏳ Hoja Abierta (En Curso)' : '✅ Visita Cerrada'}
+                  </span>
                 </div>
                 
                 {/* BOTONES: EDITAR PRECIOS + IMPRIMIR */}

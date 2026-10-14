@@ -1,7 +1,7 @@
 import React from 'react';
-import { Mic, FileText, ArrowRight, CheckCircle2, Clock, Sparkles, Wrench, Package, Info } from 'lucide-react';
+import { Mic, FileText, ArrowRight, CheckCircle2, Clock, Sparkles, Wrench, Package, Info, Trash2 } from 'lucide-react';
 
-export default function BotDraftsView({ drafts, onOpenEditorWithDraft, onOpenWhatsAppSimulator }) {
+export default function BotDraftsView({ drafts, onOpenEditorWithDraft, onOpenWhatsAppSimulator, onDiscardDraft }) {
   return (
     <div className="space-y-5">
       
@@ -98,11 +98,23 @@ export default function BotDraftsView({ drafts, onOpenEditorWithDraft, onOpenWha
                 </div>
 
                 {/* Acciones */}
-                <div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (window.confirm('¿Deseas descartar y eliminar este borrador de WhatsApp?')) {
+                        onDiscardDraft && onDiscardDraft(draft.id);
+                      }
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition border border-transparent hover:border-rose-200"
+                    title="Descartar / Eliminar este mensaje"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
                   <button
                     onClick={() => onOpenEditorWithDraft(draft)}
                     disabled={draft.status === 'applied'}
-                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-white text-xs font-medium rounded-lg flex items-center gap-2 transition shadow-xs"
+                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-2 transition shadow-xs"
                   >
                     <span>Volcar a Orden de Trabajo</span>
                     <ArrowRight className="w-3.5 h-3.5" />

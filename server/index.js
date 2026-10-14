@@ -298,6 +298,12 @@ app.get('/api/whatsapp/drafts', (req, res) => {
   res.json(incomingDrafts);
 });
 
+app.delete('/api/whatsapp/drafts/:id', (req, res) => {
+  const { id } = req.params;
+  incomingDrafts = incomingDrafts.filter(d => d.id !== id);
+  res.json({ success: true });
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor Conector de WhatsApp corriendo en http://0.0.0.0:${PORT}`);
 });

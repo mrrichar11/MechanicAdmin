@@ -249,6 +249,16 @@ export default function App() {
     }
   };
 
+  // Descartar / eliminar borrador de WhatsApp
+  const handleDiscardDraft = async (draftId) => {
+    setDrafts(prev => prev.filter(d => d.id !== draftId));
+    try {
+      await fetch(`http://localhost:3001/api/whatsapp/drafts/${draftId}`, { method: 'DELETE' });
+    } catch (e) {
+      // Ignorar si offline
+    }
+  };
+
   // Imprimir comprobante
   const handlePrintVisit = (vehicle, visit) => {
     setPrintVehicle(vehicle);
@@ -546,6 +556,7 @@ export default function App() {
             drafts={drafts}
             onOpenEditorWithDraft={handleOpenEditorWithDraft}
             onOpenWhatsAppSimulator={() => setIsWhatsAppSimOpen(true)}
+            onDiscardDraft={handleDiscardDraft}
           />
         )}
 
