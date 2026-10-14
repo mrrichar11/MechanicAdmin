@@ -191,7 +191,7 @@ export function RegisterWithdrawalModal({ isOpen, onClose, onSaveWithdrawal }) {
         <div className="bg-amber-100 px-6 py-4 border-b border-amber-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-amber-800" />
-            <h2 className="text-sm font-black text-amber-950">Registrar Retiro del Dueño (Iván Luque)</h2>
+            <h2 className="text-sm font-black text-amber-950">Registrar Retiro del Dueño / Titular</h2>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-600 hover:text-slate-900">
             <X className="w-5 h-5" />
@@ -257,7 +257,7 @@ export function RegisterCheckModal({ isOpen, onClose, onSaveCheck }) {
   const [bank, setBank] = useState('Banco Macro');
   const [checkNumber, setCheckNumber] = useState('');
   const [issuer, setIssuer] = useState('');
-  const [recipient, setRecipient] = useState('Bosch Car Service / Iván Luque');
+  const [recipient, setRecipient] = useState('El Taller');
   const [dueDate, setDueDate] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState('in_portfolio');

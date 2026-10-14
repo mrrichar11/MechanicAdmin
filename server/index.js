@@ -254,7 +254,7 @@ async function startWhatsApp() {
       // Responder confirmación por WhatsApp sólo si no es mensaje a uno mismo o si es nota personal
       try {
         await sock.sendMessage(remoteJid, {
-          text: `🚗 *Taller Luque - Sistema:* ¡Mensaje procesado para *${parsed.detectedPlate}*!\n\n🔧 *Tareas detectadas:* ${parsed.tasks.length}\n📦 *Repuestos:* ${parsed.parts.length}\n\n${existingDraftIndex >= 0 ? '🔄 _Se agregaron los nuevos trabajos a la orden abierta de esta patente._' : '📋 _Se generó una nueva orden en tu panel para aprobarla._'}`
+          text: `🚗 *Sistema del Taller:* ¡Mensaje procesado para *${parsed.detectedPlate}*!\n\n🔧 *Tareas detectadas:* ${parsed.tasks.length}\n📦 *Repuestos:* ${parsed.parts.length}\n\n${existingDraftIndex >= 0 ? '🔄 _Se agregaron los nuevos trabajos a la orden abierta de esta patente._' : '📋 _Se generó una nueva orden en tu panel para aprobarla._'}`
         });
       } catch (e) {
         console.error('Error respondiendo en WhatsApp:', e);

@@ -1,9 +1,10 @@
 export const WORKSHOP_INFO = {
-  name: "Bosch Car Service",
-  owner: "Iván Luque",
-  address: "Dentesano 61, Sunchales, Santa Fe",
-  phone: "03493-423274 / 15403364",
-  email: "ivanluque334@gmail.com",
+  name: "Mi Taller Mecánico",
+  owner: "Titular Responsable",
+  address: "Dirección del Taller",
+  phone: "Teléfono de Contacto",
+  email: "contacto@mitaller.com",
+  logoUrl: "",
 };
 
 // Vehículos: Inicialmente vacío para que Iván cargue sus planillas de Excel

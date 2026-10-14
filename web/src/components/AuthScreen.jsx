@@ -48,8 +48,8 @@ export default function AuthScreen({ onLoginSuccess }) {
 
           onLoginSuccess({
             email: email,
-            workshopName: data.user?.user_metadata?.workshop_name || 'Bosch Car Service',
-            ownerName: data.user?.user_metadata?.owner_name || 'Iván Luque',
+            workshopName: data.user?.user_metadata?.workshop_name || 'Mi Taller Mecánico',
+            ownerName: data.user?.user_metadata?.owner_name || (email ? email.split('@')[0] : 'Titular'),
             isOnline: true
           });
         }
@@ -57,8 +57,8 @@ export default function AuthScreen({ onLoginSuccess }) {
         // Si Supabase no está configurado o sus credenciales son inválidas
         onLoginSuccess({
           email: email,
-          workshopName: isRegistering ? (workshopName || 'Mi Taller Mecánico') : 'Bosch Car Service',
-          ownerName: isRegistering ? (ownerName || 'Titular') : 'Iván Luque',
+          workshopName: isRegistering ? (workshopName || 'Mi Taller Mecánico') : 'Mi Taller Mecánico',
+          ownerName: isRegistering ? (ownerName || 'Titular') : (email ? email.split('@')[0] : 'Titular'),
           phone: phone || '',
           isOnline: false
         });
@@ -85,10 +85,10 @@ export default function AuthScreen({ onLoginSuccess }) {
         {/* Banner Superior con Logo */}
         <div className="bg-slate-950 p-6 text-center text-white border-b-2 border-slate-800">
           <div className="inline-flex items-center gap-2 mb-2">
-            <div className="bg-[#cc0000] text-white px-2.5 py-0.5 font-black text-sm tracking-wider rounded">
-              BOSCH
+            <div className="bg-slate-800 text-amber-400 p-1.5 rounded-lg border border-slate-700 shadow-sm flex items-center justify-center">
+              <Wrench className="w-5 h-5 text-amber-400" />
             </div>
-            <span className="font-mono text-xs uppercase font-bold text-slate-400">Software Online</span>
+            <span className="font-mono text-xs uppercase font-black text-amber-400 tracking-wider">MechanicAdmin</span>
           </div>
           <h1 className="text-xl font-black tracking-tight text-white">
             Sistema de Gestión de Taller Mecánico
@@ -117,7 +117,7 @@ export default function AuthScreen({ onLoginSuccess }) {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Bosch Car Service Luque"
+                      placeholder="Ej. Taller Mecánico Integral"
                       value={workshopName}
                       onChange={(e) => setWorkshopName(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none"
@@ -132,7 +132,7 @@ export default function AuthScreen({ onLoginSuccess }) {
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Iván Luque"
+                      placeholder="Ej. Juan Pérez"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none"

@@ -329,7 +329,7 @@ export default function App() {
             bank: 'Banco del Cliente',
             checkNumber: `${Math.floor(10000000 + Math.random() * 90000000)}`,
             issuer: clientObj?.clientName || 'Cliente',
-            recipient: 'Bosch Car Service / Iván Luque',
+            recipient: `${workshopInfo.name || 'El Taller'} / ${workshopInfo.owner || 'Titular'}`,
             dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
             amount: amount,
             status: 'A cobrar en cartera',
@@ -436,22 +436,38 @@ export default function App() {
           
           {/* Logo del taller dinámico */}
           <div className="flex items-center gap-3.5">
-            <div className="bg-[#cc0000] text-white px-2.5 py-1 font-black text-sm tracking-wider rounded-lg shadow-sm">
-              BOSCH
-            </div>
+            {workshopInfo.logoUrl ? (
+              <img 
+                src={workshopInfo.logoUrl} 
+                alt="Logo del Taller" 
+                className="h-10 w-auto max-w-[120px] object-contain rounded-lg border border-slate-200 p-0.5 bg-white shadow-sm" 
+              />
+            ) : (
+              <div className="bg-slate-900 text-amber-400 p-2 rounded-xl shadow-sm flex items-center justify-center font-black text-sm tracking-wider">
+                <Wrench className="w-5 h-5 text-amber-400" />
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-black text-slate-950 text-base tracking-tight">
-                  {workshopInfo.name}
+                  {workshopInfo.name || "Mi Taller Mecánico"}
                 </h1>
-                <span className="text-slate-400 font-bold">/</span>
-                <span className="text-xs text-slate-800 font-black bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                  de {workshopInfo.owner}
-                </span>
+                {workshopInfo.owner && (
+                  <>
+                    <span className="text-slate-400 font-bold">/</span>
+                    <span className="text-xs text-slate-800 font-black bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      de {workshopInfo.owner}
+                    </span>
+                  </>
+                )}
               </div>
               <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-3 mt-0.5">
-                <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-500" /> {workshopInfo.address}</span>
-                <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-500" /> {workshopInfo.phone}</span>
+                {workshopInfo.address && (
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-slate-500" /> {workshopInfo.address}</span>
+                )}
+                {workshopInfo.phone && (
+                  <span className="flex items-center gap-1"><Phone className="w-3 h-3 text-slate-500" /> {workshopInfo.phone}</span>
+                )}
               </p>
             </div>
           </div>
@@ -588,7 +604,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t-2 border-slate-300 bg-white py-4 text-center text-xs text-slate-500 font-bold">
-        Sistema de Control Integral para Taller Mecánico • Bosch Car Service Iván Luque (Sunchales)
+        Sistema de Control Integral para Taller Mecánico • {workshopInfo.name || 'Mi Taller'} {workshopInfo.owner ? `de ${workshopInfo.owner}` : ''}
       </footer>
 
       {/* Modales de Vehículos & Trabajos */}

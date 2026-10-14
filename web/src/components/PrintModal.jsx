@@ -71,28 +71,39 @@ export default function PrintModal({ isOpen, onClose, vehicle, visit, workshopIn
         {/* Hoja de Presupuesto / Servicio Membretada */}
         <div className="flex-1 overflow-y-auto p-8 sm:p-12 text-slate-900 font-sans print:p-0">
           
-          {/* Header oficial Bosch Car Service */}
+          {/* Header membretado del Taller */}
           <div className="border-b-2 border-slate-800 pb-6 mb-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <div className="flex items-center gap-3">
-                  <div className="bg-[#cc0000] text-white px-3 py-1 font-black text-xl tracking-wider rounded">
-                    BOSCH
-                  </div>
+                  {info.logoUrl ? (
+                    <img 
+                      src={info.logoUrl} 
+                      alt="Logo del Taller" 
+                      className="h-14 w-auto max-w-[160px] object-contain rounded"
+                    />
+                  ) : (
+                    <div className="bg-slate-900 text-amber-400 p-2.5 rounded-xl flex items-center justify-center shadow-sm">
+                      <Wrench className="w-7 h-7 text-amber-400" />
+                    </div>
+                  )}
                   <div>
                     <h1 className="text-2xl font-black tracking-tight text-slate-900">
-                      {info.name}
+                      {info.name || "Mi Taller Mecánico"}
                     </h1>
-                    <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">
-                      de {info.owner}
-                    </p>
+                    {info.owner && (
+                      <p className="text-xs font-bold text-slate-600 uppercase tracking-widest">
+                        de {info.owner}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="text-right text-xs text-slate-600 leading-tight">
-                <p className="font-semibold text-slate-900">{info.address}</p>
-                <p>Tel: {info.phone}</p>
-                <p>Email: {info.email}</p>
+                {info.address && <p className="font-semibold text-slate-900">{info.address}</p>}
+                {info.phone && <p>Tel: {info.phone}</p>}
+                {info.email && <p>Email: {info.email}</p>}
+                {info.cuit && <p>CUIT: {info.cuit}</p>}
               </div>
             </div>
           </div>
@@ -201,7 +212,7 @@ export default function PrintModal({ isOpen, onClose, vehicle, visit, workshopIn
           {/* Pie de firma */}
           <div className="border-t border-slate-200 pt-8 mt-12 flex justify-between items-end text-xs text-slate-500">
             <div>
-              <p>Garantía de servicio técnico oficial Bosch Car Service.</p>
+              <p>Garantía de servicio técnico y mano de obra garantizada por {info.name || 'el Taller'}.</p>
               <p>Comprobante generado por el sistema de gestión del taller.</p>
             </div>
             <div className="text-center w-48 border-t border-slate-400 pt-1">

@@ -154,7 +154,7 @@ export default function SettingsView({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej. Bosch Car Service"
+              placeholder="Ej. Taller Mecánico San Martín"
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none"
             />
           </div>
@@ -166,7 +166,7 @@ export default function SettingsView({
               required
               value={owner}
               onChange={(e) => setOwner(e.target.value)}
-              placeholder="Ej. Iván Luque"
+              placeholder="Ej. Juan Pérez"
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none"
             />
           </div>
@@ -179,7 +179,7 @@ export default function SettingsView({
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Ej. Dentesano 61, Sunchales"
+              placeholder="Ej. Av. Rivadavia 1234, Ciudad"
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:bg-white focus:outline-none"
             />
           </div>
@@ -190,7 +190,7 @@ export default function SettingsView({
               type="text"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="Ej. 03493-423274 / 15403364"
+              placeholder="Ej. 011-45678900 / 11-55554444"
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:bg-white focus:outline-none"
             />
           </div>
@@ -201,10 +201,46 @@ export default function SettingsView({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Ej. ivanluque334@gmail.com"
+              placeholder="Ej. info@mitaller.com"
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:bg-white focus:outline-none"
             />
           </div>
+        </div>
+
+        {/* Logo personalizado del taller */}
+        <div className="pt-2 border-t border-slate-100">
+          <label className="block text-slate-700 font-bold mb-1 flex items-center justify-between">
+            <span>Logo del Taller (URL de imagen o carga directa)</span>
+            {logoUrl && (
+              <button
+                type="button"
+                onClick={() => setLogoUrl('')}
+                className="text-rose-600 hover:text-rose-800 text-[10px] font-bold"
+              >
+                Eliminar logo
+              </button>
+            )}
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://... o pega el enlace directo de tu logo"
+              className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-slate-900 focus:bg-white focus:outline-none font-mono text-xs"
+            />
+            {logoUrl && (
+              <img 
+                src={logoUrl} 
+                alt="Vista previa logo" 
+                className="h-9 w-auto max-w-[80px] object-contain rounded border border-slate-300 p-0.5 bg-white shadow-2xs"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            )}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-0.5 block">
+            Este logo se mostrará en el encabezado de la web y en la esquina superior de los presupuestos y comprobantes impresos en PDF.
+          </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-slate-100">

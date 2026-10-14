@@ -101,7 +101,7 @@ export default function WhatsAppSimulator({ isOpen, onClose, onNewDraftCreated, 
 
       const newDraft = {
         id: `draft-${Date.now()}`,
-        sender: "Iván Luque (Taller)",
+        sender: "Mecánico de Taller",
         timestamp: "Recién",
         sourceType: type,
         rawContent: rawText,
@@ -139,7 +139,7 @@ export default function WhatsAppSimulator({ isOpen, onClose, onNewDraftCreated, 
             </div>
             <div>
               <div className="font-medium text-sm flex items-center gap-1.5">
-                Bot Asistente Taller Luque
+                Bot Asistente del Taller
                 <span className="w-2 h-2 rounded-full bg-emerald-300"></span>
               </div>
               <div className="text-[11px] text-white/80">En línea • Asistente Mecánico</div>

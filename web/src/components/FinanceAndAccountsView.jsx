@@ -94,7 +94,7 @@ export default function FinanceAndAccountsView({
         {/* Retiros del Dueño */}
         <div className="bg-white border-2 border-amber-300 rounded-2xl p-4 shadow-md hover:shadow-lg transition-all">
           <div className="flex items-center justify-between text-xs font-bold text-amber-900">
-            <span>Retiros del Dueño (Iván Luque)</span>
+            <span>Retiros del Dueño / Titular</span>
             <UserCheck className="w-4 h-4 text-amber-700" />
           </div>
           <div className="text-2xl font-black text-amber-950 font-mono mt-1">
@@ -491,14 +491,14 @@ export default function FinanceAndAccountsView({
       )}
 
       {/* ========================================================
-          5. PESTAÑA: RETIROS DEL DUEÑO (Iván Luque)
+          5. PESTAÑA: RETIROS DEL DUEÑO / TITULAR
       ======================================================== */}
       {activeTab === 'withdrawals' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                Retiros y Adelantos de Ganancias del Dueño (Iván Luque)
+                Retiros y Adelantos de Ganancias del Dueño
               </h3>
               <p className="text-xs text-slate-500">
                 Registro detallado de dinero retirado de la caja o transferido a cuentas personales.
