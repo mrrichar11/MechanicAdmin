@@ -48,15 +48,10 @@ import {
 } from './components/FinanceModals';
 
 export default function App() {
-  // Sesión de Usuario y Perfil del Taller
+  // Sesión de Usuario y Perfil del Taller (requiere login al entrar)
   const [userSession, setUserSession] = useState(() => {
     const saved = localStorage.getItem('workshop_user_session');
-    return saved ? JSON.parse(saved) : {
-      email: 'ivanluque334@gmail.com',
-      workshopName: 'Bosch Car Service',
-      ownerName: 'Iván Luque',
-      phone: '03493-423274'
-    };
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [workshopInfo, setWorkshopInfo] = useState(() => {

@@ -73,6 +73,12 @@ export default function AuthScreen({ onLoginSuccess }) {
   };
 
   const handleQuickDemoIvan = () => {
+    setEmail('ivanluque334@gmail.com');
+    setPassword('Luque2026!');
+    setIsRegistering(false);
+  };
+
+  const handleDirectDemoIvan = () => {
     onLoginSuccess({
       email: 'ivanluque334@gmail.com',
       workshopName: 'Bosch Car Service',
@@ -85,15 +91,9 @@ export default function AuthScreen({ onLoginSuccess }) {
   };
 
   const handleQuickDemoGeneric = () => {
-    onLoginSuccess({
-      email: 'contacto@mitaller.com',
-      workshopName: 'Taller Mecánico Integral',
-      ownerName: 'Administrador',
-      address: 'Av. Libertador 500',
-      phone: '011-45678900',
-      isDemo: true,
-      isOnline: false
-    });
+    setEmail('contacto@mitaller.com');
+    setPassword('Taller2026!');
+    setIsRegistering(false);
   };
 
   return (
@@ -232,22 +232,24 @@ export default function AuthScreen({ onLoginSuccess }) {
           {/* Accesos rápidos Demo para pruebas */}
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
             <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-              Acceso Rápido de Prueba (Sin contraseña):
+              Credenciales de prueba sugeridas:
             </span>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={handleQuickDemoIvan}
                 className="py-1.5 px-2 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-lg font-black text-[11px] transition shadow-2xs text-center"
+                title="Rellena ivanluque334@gmail.com / Luque2026!"
               >
-                Taller Iván Luque
+                Cargar Iván Luque
               </button>
               <button
                 type="button"
-                onClick={handleQuickDemoGeneric}
+                onClick={handleDirectDemoIvan}
                 className="py-1.5 px-2 bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300 rounded-lg font-bold text-[11px] transition shadow-2xs text-center"
+                title="Entrar directo sin internet"
               >
-                Taller Genérico
+                Entrar Demo Directo
               </button>
             </div>
           </div>
