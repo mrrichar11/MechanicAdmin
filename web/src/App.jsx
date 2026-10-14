@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Car, 
   Bot, 
@@ -144,8 +144,12 @@ export default function App() {
   const [isCheckModalOpen, setIsCheckModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
 
-  // Polling para traer borradores generados por WhatsApp real desde el servidor
+  // Polling para traer borradores generados por WhatsApp real desde el servidor local
   useEffect(() => {
+    // Si la web está en Vercel (https) y el servidor WhatsApp está en local, no bloquear
+    const isLocalEnv = window.location.hostname === 'localhost' || window.location.hostname.startsWith('192.168.') || window.location.hostname === '127.0.0.1';
+    if (!isLocalEnv) return;
+
     const fetchIncomingDrafts = async () => {
       try {
         const res = await fetch('http://localhost:3001/api/whatsapp/drafts');
@@ -160,7 +164,7 @@ export default function App() {
           }
         }
       } catch (err) {
-        // Backend no conectado o apagado, no molestar con error
+        // Backend no conectado o apagado, ignorar silenciosamente
       }
     };
 
