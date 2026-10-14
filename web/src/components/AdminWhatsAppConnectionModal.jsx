@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Lock, 
   Unlock, 
@@ -10,30 +10,62 @@ import {
   X, 
   RefreshCw, 
   KeyRound, 
-  Eye, 
-  EyeOff, 
   LogOut,
-  MessageSquare,
-  Sparkles
+  Sparkles,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 export default function AdminWhatsAppConnectionModal({ 
   isOpen, 
-  onClose, 
-  onSimulateLink 
+  onClose 
 }) {
-  // Estado de autenticación del Administrador
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [pinInput, setPinInput] = useState('');
-  const [adminPin, setAdminPin] = useState('1234'); // PIN por defecto de Iván
+  const [adminPin, setAdminPin] = useState('1234');
   const [errorMessage, setErrorMessage] = useState('');
   const [showPinChange, setShowPinChange] = useState(false);
   const [newPin, setNewPin] = useState('');
 
-  // Estado de la conexión de WhatsApp
-  const [connectionStatus, setConnectionStatus] = useState('connected'); // 'disconnected' | 'connecting' | 'connected'
-  const [qrCodeGenerated, setQrCodeGenerated] = useState(false);
+  // Estado REAL de Baileys / WhatsApp
+  const [serverOnline, setServerOnline] = useState(false);
+  const [isRealConnected, setIsRealConnected] = useState(false);
+  const [realQrCodeUrl, setRealQrCodeUrl] = useState(null);
+  const [connectedUserPhone, setConnectedUserPhone] = useState(null);
   const [filterPrivacyActive, setFilterPrivacyActive] = useState(true);
+
+  // URL del backend (detecta si está en localhost o en la IP local)
+  const apiBase = window.location.hostname === 'localhost' 
+    ? 'http://localhost:3001' 
+    : `http://${window.location.hostname}:3001`;
+
+  // Polling para consultar estado real de Baileys cuando el modal está abierto
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated) return;
+
+    const checkRealStatus = async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/whatsapp/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setServerOnline(true);
+          setIsRealConnected(data.isConnected);
+          setRealQrCodeUrl(data.qrCodeDataUrl);
+          if (data.user) {
+            setConnectedUserPhone(data.user.id || data.user.name || 'Conectado');
+          } else {
+            setConnectedUserPhone(null);
+          }
+        }
+      } catch (err) {
+        setServerOnline(false);
+      }
+    };
+
+    checkRealStatus();
+    const interval = setInterval(checkRealStatus, 2500);
+    return () => clearInterval(interval);
+  }, [isOpen, isAuthenticated, apiBase]);
 
   if (!isOpen) return null;
 
@@ -68,24 +100,21 @@ export default function AdminWhatsAppConnectionModal({
     }
   };
 
-  const handleGenerateQR = () => {
-    setConnectionStatus('connecting');
-    setQrCodeGenerated(true);
-    setTimeout(() => {
-      setConnectionStatus('connected');
-    }, 4000);
-  };
-
-  const handleDisconnect = () => {
-    if (window.confirm('¿Seguro que deseas desvincular el WhatsApp del taller? Tendrás que escanear el QR nuevamente.')) {
-      setConnectionStatus('disconnected');
-      setQrCodeGenerated(false);
+  const handleDisconnect = async () => {
+    if (window.confirm('¿Deseas desvincular la sesión de WhatsApp del taller?')) {
+      try {
+        await fetch(`${apiBase}/api/whatsapp/disconnect`, { method: 'POST' });
+        setIsRealConnected(false);
+        setRealQrCodeUrl(null);
+      } catch (e) {
+        alert('Error al desconectar');
+      }
     }
   };
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleLogout();
@@ -104,14 +133,16 @@ export default function AdminWhatsAppConnectionModal({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-black tracking-tight">
-                  Conexión WhatsApp del Taller
+                  Conector Real de WhatsApp (Baileys)
                 </h2>
                 <span className="bg-slate-800 text-amber-400 border border-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Solo Administrador
+                  <ShieldCheck className="w-3 h-3" /> Exclusivo Administrador
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                {isAuthenticated ? 'Sesión de Administrador Activa (Iván Luque)' : 'Área protegida por contraseña para privacidad de chats personales'}
+                {isAuthenticated 
+                  ? 'Sesión de Administrador Desbloqueada (Privacidad Activa)' 
+                  : 'Ingresa tu PIN para ver el código QR y proteger tus chats personales'}
               </p>
             </div>
           </div>
@@ -138,7 +169,7 @@ export default function AdminWhatsAppConnectionModal({
           </div>
         </div>
 
-        {/* CONTENIDO BLOQUEADO (PANTALLA DE ACCESO PIN) */}
+        {/* PANTALLA DE ACCESO POR PIN (PROTECCIÓN DE PRIVACIDAD) */}
         {!isAuthenticated ? (
           <div className="p-8 text-center space-y-6 bg-slate-50">
             <div className="w-16 h-16 rounded-2xl bg-amber-100 border-2 border-amber-300 text-amber-800 flex items-center justify-center mx-auto shadow-md">
@@ -150,20 +181,20 @@ export default function AdminWhatsAppConnectionModal({
                 Acceso Exclusivo para el Dueño
               </h3>
               <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                Por seguridad y privacidad de tus conversaciones personales y familiares en WhatsApp, la visualización de chats y la configuración del conector están restringidas.
+                Para que nadie en el taller pueda ver o vincular tu WhatsApp personal, el conector y el código QR están protegidos con contraseña.
               </p>
             </div>
 
             <form onSubmit={handleLogin} className="max-w-xs mx-auto space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 text-left">
-                  Ingresa tu PIN o Contraseña de Administrador:
+                  Ingresa tu PIN de Administrador (Por defecto: 1234):
                 </label>
                 <input
                   type="password"
                   autoFocus
                   required
-                  placeholder="PIN (Por defecto: 1234)"
+                  placeholder="••••"
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
                   className="w-full bg-white border-2 border-slate-300 rounded-xl px-4 py-2.5 text-center text-slate-900 font-mono text-base font-bold tracking-widest focus:outline-none focus:border-slate-800 shadow-inner"
@@ -180,144 +211,137 @@ export default function AdminWhatsAppConnectionModal({
                 type="submit"
                 className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-md transition hover:shadow-lg hover:-translate-y-0.5"
               >
-                Desbloquear Panel de WhatsApp
+                Desbloquear Conexión WhatsApp
               </button>
             </form>
-
-            <div className="text-[11px] text-slate-500 border-t border-slate-200 pt-4 max-w-sm mx-auto">
-              💡 <strong>Nota de privacidad:</strong> Los empleados y mecánicos solo ven las órdenes técnicas ya parseadas de los vehículos, nunca tus chats personales.
-            </div>
           </div>
         ) : (
-          /* CONTENIDO DESBLOQUEADO (CONFIGURACIÓN Y QR DE WHATSAPP) */
-          <div className="p-6 space-y-6 bg-slate-50/50">
+          /* PANTALLA REAL CON CÓDIGO QR DE WHATSAPP */
+          <div className="p-6 space-y-5 bg-slate-50/50">
             
-            {/* Estado de la Conexión */}
+            {/* Tarjeta de Estado del Conector */}
             <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3.5 h-3.5 rounded-full ${connectionStatus === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                  <div className={`w-3.5 h-3.5 rounded-full ${
+                    isRealConnected ? 'bg-emerald-500 animate-pulse' : (realQrCodeUrl ? 'bg-amber-500' : 'bg-slate-400')
+                  }`} />
                   <div>
-                    <h3 className="text-sm font-black text-slate-900">
-                      {connectionStatus === 'connected' ? 'WhatsApp Vinculado y Activo' : 'WhatsApp Desconectado'}
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      {isRealConnected ? '✅ WhatsApp Vinculado y Recibiendo Mensajes' : '📲 Esperando Vinculación de WhatsApp'}
                     </h3>
                     <p className="text-xs text-slate-500">
-                      {connectionStatus === 'connected' 
-                        ? 'Línea conectada: Iván Luque (+54 9 3493 15-403364)' 
-                        : 'Escanea el código QR desde tu celular para activar el bot del taller'}
+                      {isRealConnected 
+                        ? `Línea activa: ${connectedUserPhone || 'Tu número de teléfono'}`
+                        : 'Escanea el código QR de abajo con tu celular para vincular'}
                     </p>
                   </div>
                 </div>
 
-                {connectionStatus === 'connected' ? (
+                {isRealConnected && (
                   <button
                     onClick={handleDisconnect}
                     className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold transition shadow-2xs"
                   >
                     Desvincular
                   </button>
-                ) : (
-                  <button
-                    onClick={handleGenerateQR}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-1.5"
-                  >
-                    <QrCode className="w-4 h-4" /> Generar Código QR
-                  </button>
                 )}
               </div>
 
-              {/* Si está en proceso de conexión / mostrando QR */}
-              {connectionStatus === 'connecting' && (
-                <div className="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-emerald-400 text-center space-y-3">
-                  <div className="w-48 h-48 bg-white border-2 border-slate-300 mx-auto rounded-xl flex items-center justify-center p-3 shadow-md">
-                    {/* QR Mockup visual interactivo */}
-                    <div className="relative w-full h-full flex flex-col items-center justify-center bg-slate-950 rounded-lg p-2 text-white">
-                      <QrCode className="w-28 h-28 text-white mx-auto animate-pulse" />
-                      <span className="text-[10px] font-mono font-bold mt-1 text-emerald-400">Escaneando...</span>
+              {/* CONTENEDOR DEL CÓDIGO QR REAL */}
+              {!isRealConnected && (
+                <div className="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-emerald-400 text-center space-y-4">
+                  {realQrCodeUrl ? (
+                    <div className="space-y-3">
+                      <div className="inline-block p-3 bg-white border-2 border-slate-300 rounded-2xl shadow-lg">
+                        {/* IMAGEN DEL CÓDIGO QR REAL EMITIDO POR WHATSAPP */}
+                        <img 
+                          src={realQrCodeUrl} 
+                          alt="Código QR Real de WhatsApp" 
+                          className="w-64 h-64 mx-auto block rounded-lg"
+                        />
+                      </div>
+                      <p className="text-xs font-black text-emerald-800">
+                        ⚡ Código QR emitido en vivo por WhatsApp. Se actualiza automáticamente.
+                      </p>
                     </div>
-                  </div>
-                  <div className="text-xs text-slate-700 max-w-sm mx-auto">
-                    <p className="font-bold">1. Abre WhatsApp en tu celular</p>
-                    <p>2. Ve a <strong>Ajustes ➡️ Dispositivos Vinculados ➡️ Vincular un dispositivo</strong></p>
-                    <p>3. Apunta tu cámara hacia este código QR</p>
+                  ) : (
+                    <div className="p-8 text-center text-xs font-bold text-slate-500 space-y-2">
+                      <RefreshCw className="w-6 h-6 mx-auto animate-spin text-emerald-600" />
+                      <p>Generando código QR desde WhatsApp Web...</p>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-slate-700 max-w-sm mx-auto bg-white p-3.5 rounded-xl border border-slate-200 text-left space-y-1.5 shadow-2xs">
+                    <p className="font-bold text-slate-900">Pasos para escanear con tu celular:</p>
+                    <p>1. Abre <strong>WhatsApp</strong> en tu teléfono.</p>
+                    <p>2. Toca los tres puntos o Configuración ➡️ <strong>Dispositivos vinculados</strong>.</p>
+                    <p>3. Toca <strong>Vincular un dispositivo</strong> y apunta tu cámara a este código QR.</p>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Configuración de Filtros de Privacidad */}
-            <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
-              <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                Filtro de Privacidad y Procesamiento Inteligente
-              </h4>
-
-              <div className="space-y-2 text-xs">
-                <label className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100/70 transition">
-                  <input
-                    type="checkbox"
-                    checked={filterPrivacyActive}
-                    onChange={(e) => setFilterPrivacyActive(e.target.checked)}
-                    className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                  />
-                  <div>
-                    <span className="font-bold text-slate-900 block">
-                      Aislar automáticamente los chats personales
-                    </span>
-                    <span className="text-slate-500 leading-relaxed block mt-0.5 text-[11px]">
-                      El sistema solo analiza mensajes que contengan una patente de auto o que te envíes a tu propio chat personal ("Mensajes a ti mismo"). Todos los demás chats (familia, grupos de amigos) son ignorados por completo y nunca se almacenan.
-                    </span>
-                  </div>
-                </label>
-              </div>
+            {/* Filtro de Privacidad */}
+            <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-sm text-xs">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filterPrivacyActive}
+                  onChange={(e) => setFilterPrivacyActive(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                />
+                <div>
+                  <span className="font-bold text-slate-900 block">
+                    🔒 Protección activa de chats personales
+                  </span>
+                  <span className="text-slate-500 leading-relaxed block mt-0.5 text-[11px]">
+                    El conector solo extrae datos cuando el mensaje contiene una patente o te lo mandas a ti mismo ("Mensajes a ti mismo"). Tus chats privados con familia y amigos son ignorados por completo.
+                  </span>
+                </div>
+              </label>
             </div>
 
             {/* Administrar PIN de Acceso */}
-            <div className="bg-white border-2 border-slate-200 rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-slate-700" />
-                    PIN de Seguridad del Administrador
-                  </h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    PIN actual: <strong className="font-mono">••••</strong> (cámbialo cuando quieras para que nadie en el taller pueda ver esta sección)
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowPinChange(!showPinChange)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs transition border border-slate-300"
-                >
-                  {showPinChange ? 'Cancelar' : 'Cambiar PIN'}
-                </button>
+            <div className="bg-white border-2 border-slate-200 rounded-2xl p-4 shadow-sm flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-slate-800 block">PIN de Administrador: ••••</span>
+                <span className="text-slate-500 text-[11px]">Cambia la clave para que nadie en el taller pueda ver esta sección</span>
               </div>
-
-              {showPinChange && (
-                <form onSubmit={handleChangePin} className="mt-4 pt-4 border-t border-slate-200 flex items-center gap-2 max-w-sm">
-                  <input
-                    type="password"
-                    placeholder="Nuevo PIN (ej. 5821)"
-                    value={newPin}
-                    onChange={(e) => setNewPin(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:bg-white focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition shadow-xs"
-                  >
-                    Guardar
-                  </button>
-                </form>
-              )}
+              <button
+                onClick={() => setShowPinChange(!showPinChange)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg transition border border-slate-300"
+              >
+                {showPinChange ? 'Cancelar' : 'Cambiar PIN'}
+              </button>
             </div>
+
+            {showPinChange && (
+              <form onSubmit={handleChangePin} className="p-3 bg-white border border-slate-200 rounded-xl flex items-center gap-2">
+                <input
+                  type="password"
+                  placeholder="Nuevo PIN (ej. 7842)"
+                  value={newPin}
+                  onChange={(e) => setNewPin(e.target.value)}
+                  className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono font-bold text-slate-900"
+                />
+                <button
+                  type="submit"
+                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs"
+                >
+                  Guardar
+                </button>
+              </form>
+            )}
 
           </div>
         )}
 
         {/* Footer */}
         <div className="bg-slate-100 px-6 py-3 border-t border-slate-200 flex justify-between items-center text-xs">
-          <span className="text-slate-500 font-semibold">
-            Tecnología: Gateway Evolution API / Baileys con Cifrado Local
+          <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+            {serverOnline ? <Wifi className="w-3.5 h-3.5 text-emerald-600" /> : <WifiOff className="w-3.5 h-3.5 text-slate-400" />}
+            <span>Servidor Baileys activo en puerto 3001</span>
           </span>
           <button
             onClick={() => {
