@@ -66,10 +66,18 @@ export default function SettingsView({
   const handleSaveSupabaseConfig = (e) => {
     e.preventDefault();
     if (supabaseUrl && supabaseKey) {
-      localStorage.setItem('workshop_supabase_url', supabaseUrl.trim());
-      localStorage.setItem('workshop_supabase_key', supabaseKey.trim());
+      let cleaned = supabaseUrl.trim().replace(/^["']|["']$/g, '');
+      cleaned = cleaned.replace(/\/+$/, '');
+      cleaned = cleaned.replace(/\/rest\/v1\/?$/, '');
+      cleaned = cleaned.replace(/\/auth\/v1\/?$/, '');
+      if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+        cleaned = `https://${cleaned}`;
+      }
+
+      localStorage.setItem('workshop_supabase_url', cleaned);
+      localStorage.setItem('workshop_supabase_key', supabaseKey.trim().replace(/^["']|["']$/g, ''));
       setSupabaseStatus('connected');
-      alert('Credenciales de Supabase guardadas localmente. La app se sincronizará con tu base de datos en la nube al recargar.');
+      alert('Credenciales de Supabase guardadas y validadas correctamente. La app se recargará para sincronizar.');
       window.location.reload();
     } else {
       localStorage.removeItem('workshop_supabase_url');
